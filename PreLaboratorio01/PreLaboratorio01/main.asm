@@ -39,3 +39,35 @@ SETUP:
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
 	LDI		R19, 0x00			// Variable para contador
+
+// Loop infinito
+MAIN:
+	IN		R16, PIND			// Guardando el estado de PORTD (pb) en R16 0xFF
+	CP		R17, R16			// Comparamos estado viejo con estado nuevo
+	BREQ	MAIN				// Si no hay cambio, salta a MAIN
+	CALL	DELAY				// Si hay cambio, salta a call y hace delay
+	IN		R16, PIND			// Por si ocurre rebote vuelve a leer y a comparar
+	CP		R17, R16
+	BREQ	MAIN				// Si después del delay sigue igual, no hace nada
+	
+	// Volver a leer PIND
+	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
+
+// Sub-rutina (no de interrupcion)
+DELAY:
+	LDI		R18, 0xFF
+SUB_DELAY1:
+	DEC		R18
+	CPI		R18, 0
+	BRNE	SUB_DELAY1
+	LDI		R18, 0xFF
+SUB_DELAY2:
+	DEC		R18
+	CPI		R18, 0
+	BRNE	SUB_DELAY2
+	LDI		R18, 0xFF
+SUB_DELAY3:
+	DEC		R18
+	CPI		R18, 0
+	BRNE	SUB_DELAY3
+	RET	
