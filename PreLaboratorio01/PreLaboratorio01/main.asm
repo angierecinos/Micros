@@ -53,6 +53,36 @@ MAIN:
 	// Volver a leer PIND
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
 
+	// Verificar si el boton1 esta presionado
+	SBRS	R16, 0				// Salta si el bit 0 del PIND es 1 (no apachado)
+	RJMP	INCREMENTAR
+
+	// Verificar si el boton2 esta presionado
+	SBRS	R16, 1				// Salta si el bit 1 del PIND es 1 (no apachado)
+	RJMP	DECREMENTAR
+
+	RJMP	MAIN				// Si no hubo cambios, vuelve a analizar
+
+// Para incrementar contador
+INCREMENTAR: 
+	CPI		R19, 0x0F			// Compara el valor del contador 
+    BREQ	RESET_COUNTER		// Si el contador está en 15, reinicia el contador
+	INC		R19					// R19 aumentará si aun no llega a 15
+	SBI		PINB, 0				// Toggle de PB0 -la salida-(cambio de estado pb1)
+	RJMP	MAIN				// Vuelve al ciclo main a repetir
+
+// Para decrementar contador
+DECREMENTAR: 
+	CPI		R19, 0x00			// Si el contador llega a 0, reiniciar el contador
+	BREQ	MAIN				// Si es igual a 0 no hace nada y vuelve a main
+	DEC		R19					// R19 decrementará
+	SBI		PINB, 1				// Toggle de PB1 (cambio de estado pb 2) 
+	RJMP	MAIN
+
+RESET_COUNTER:
+    LDI		R19, 0x00			// Resetea el contador a 0
+    RJMP	MAIN				// Regresa al main
+
 // Sub-rutina (no de interrupcion)
 DELAY:
 	LDI		R18, 0xFF
