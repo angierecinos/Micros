@@ -38,7 +38,8 @@ SETUP:
 	OUT		PORTB, R16			// Encender primer bit del puerto B
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
-	LDI		R19, 0x00			// Variable para contador
+	LDI		R19, 0x00			// Variable para contador1
+	LDI		R20, 0X00			// Variabl para contador2
 
 // Loop infinito
 MAIN:
@@ -52,38 +53,8 @@ MAIN:
 	
 	// Volver a leer PIND
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
-
-	// Verificar si el boton1 esta presionado
-	SBRS	R16, 2				// Salta si el bit 0 del PIND es 1 (no apachado)
-	RJMP	INCREMENTAR
-
-	// Verificar si el boton2 esta presionado
-	SBRS	R16, 3				// Salta si el bit 1 del PIND es 1 (no apachado)
-	RJMP	DECREMENTAR
-
-	RJMP	MAIN				// Si no hubo cambios, vuelve a analizar
-
-// Para incrementar contador
-INCREMENTAR: 
-	CPI		R19, 0x0F			// Compara el valor del contador 
-    BREQ	RESET_COUNTER		// Si el contador está en 15, reinicia el contador
-	INC		R19					// R19 aumentará si aun no llega a 15
-	SBI		PINB, 0				// Toggle de PB0 -la salida-(cambio de estado pb1)
-	OUT		PORTB, R19
-	RJMP	MAIN				// Vuelve al ciclo main a repetir
-
-// Para decrementar contador
-DECREMENTAR: 
-	CPI		R19, 0x00			// Si el contador llega a 0, reiniciar el contador
-	BREQ	MAIN				// Si es igual a 0 no hace nada y vuelve a main
-	DEC		R19					// R19 decrementará
-	SBI		PINB, 1				// Toggle de PB1 (cambio de estado pb 2)
-	OUT		PORTB, R19
-	RJMP	MAIN
-
-RESET_COUNTER:
-    LDI		R19, 0x00			// Resetea el contador a 0
-    RJMP	MAIN				// Regresa al main
+	CALL	REVISAR_CONT1		// El contador esta en su propia subrutina
+	CALL	REVISAR_CONT2
 
 // Sub-rutina (no de interrupcion)
 DELAY:
@@ -103,3 +74,41 @@ SUB_DELAY3:
 	CPI		R18, 0
 	BRNE	SUB_DELAY3
 	RET	
+
+// Sub-rutina para revisar contador1
+REVISAR_CONT1
+	// Verificar si el boton1 esta presionado
+	SBRS	R16, 2				// Salta si el bit 2 del PIND es 1 (no apachado)
+	RJMP	INCREMENTAR1
+
+	// Verificar si el boton2 esta presionado
+	SBRS	R16, 3				// Salta si el bit 3 del PIND es 1 (no apachado)
+	RJMP	DECREMENTAR1
+
+
+INCREMENTAR1: 
+	CPI		R19, 0x0F			// Compara el valor del contador 
+    BREQ	RESET_COUNTER		// Si el contador está en 15, reinicia el contador
+	INC		R19					// R19 aumentará si aun no llega a 15
+	SBI		PINB, 0				// Toggle de PB0 -la salida-(cambio de estado pb1)
+	OUT		PORTB, R19
+	RJMP	MAIN				// Vuelve al ciclo main a repetir
+
+// Para decrementar contador
+DECREMENTAR1: 
+	CPI		R19, 0x00			// Si el contador llega a 0, reiniciar el contador
+	BREQ	MAIN				// Si es igual a 0 no hace nada y vuelve a main
+	DEC		R19					// R19 decrementará
+	SBI		PINB, 1				// Toggle de PB1 (cambio de estado pb 2)
+	OUT		PORTB, R19
+	RJMP	MAIN
+
+RESET_COUNTER1:
+    LDI		R19, 0x00			// Resetea el contador a 0
+    RJMP	MAIN				// Regresa al main
+
+// Sub-rutina para revisar contador2
+REVISAR_CONT2
+	
+
+	RJMP	MAIN				// Si no hubo cambios, vuelve a analizar
