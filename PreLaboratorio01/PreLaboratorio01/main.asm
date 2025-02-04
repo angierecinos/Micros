@@ -53,6 +53,13 @@ MAIN:
 	
 	// Volver a leer PIND
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
+	// Verificar si el boton1 esta presionado
+	SBRS	R16, 2				// Salta si el bit 2 del PIND es 1 (no apachado)
+	RJMP	INCREMENTAR1
+
+	// Verificar si el boton2 esta presionado
+	SBRS	R16, 3				// Salta si el bit 3 del PIND es 1 (no apachado)
+	RJMP	DECREMENTAR1
 	CALL	REVISAR_CONT1		// El contador esta en su propia subrutina
 	CALL	REVISAR_CONT2
 
@@ -77,13 +84,7 @@ SUB_DELAY3:
 
 // Sub-rutina para revisar contador1
 REVISAR_CONT1
-	// Verificar si el boton1 esta presionado
-	SBRS	R16, 2				// Salta si el bit 2 del PIND es 1 (no apachado)
-	RJMP	INCREMENTAR1
-
-	// Verificar si el boton2 esta presionado
-	SBRS	R16, 3				// Salta si el bit 3 del PIND es 1 (no apachado)
-	RJMP	DECREMENTAR1
+	
 
 
 INCREMENTAR1: 
@@ -106,9 +107,37 @@ DECREMENTAR1:
 RESET_COUNTER1:
     LDI		R19, 0x00			// Resetea el contador a 0
     RJMP	MAIN				// Regresa al main
+	RET
 
 // Sub-rutina para revisar contador2
 REVISAR_CONT2
-	
+	// Verificar si el boton3 esta presionado
+	SBRS	R16, 4				// Salta si el bit 2 del PIND es 1 (no apachado)
+	RJMP	INCREMENTAR2
 
-	RJMP	MAIN				// Si no hubo cambios, vuelve a analizar
+	// Verificar si el boton4 esta presionado
+	SBRS	R16, 5				// Salta si el bit 3 del PIND es 1 (no apachado)
+	RJMP	DECREMENTAR2
+
+
+INCREMENTAR2: 
+	CPI		R20, 0x0F			// Compara el valor del contador 
+    BREQ	RESET_COUNTER		// Si el contador está en 15, reinicia el contador
+	INC		R20					// R19 aumentará si aun no llega a 15
+	SBI		PINB, 0				// Toggle de PB0 -la salida-(cambio de estado pb1)
+	OUT		PORTB, R20
+	RJMP	MAIN				// Vuelve al ciclo main a repetir
+
+// Para decrementar contador
+DECREMENTAR2: 
+	CPI		R20, 0x00			// Si el contador llega a 0, reiniciar el contador
+	BREQ	MAIN				// Si es igual a 0 no hace nada y vuelve a main
+	DEC		R20					// R19 decrementará
+	SBI		PINB, 1				// Toggle de PB1 (cambio de estado pb 2)
+	OUT		PORTB, R20
+	RJMP	MAIN
+
+RESET_COUNTER2:
+    LDI		R20, 0x00			// Resetea el contador a 0
+    RJMP	MAIN				// Regresa al main
+	RET
