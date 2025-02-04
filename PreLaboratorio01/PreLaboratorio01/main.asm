@@ -39,7 +39,7 @@ SETUP:
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
 	LDI		R19, 0x00			// Variable para contador1
-	LDI		R20, 0X00			// Variabl para contador2
+	LDI		R20, 0X00			// Variable para contador2
 
 // Loop infinito
 MAIN:
@@ -63,14 +63,10 @@ MAIN:
 	CALL	INCREMENTAR2		// Si el bit 2 es 0 el boton esta apachado y (+)
 	SBIS	R16, 3				// Salta si el bit 3 del PIND es 1
 	CALL	DECREMENTAR2		// Si el bit 3 es 0 el boton esta apachado y (-)
-
-	// Verificar si el boton2 esta presionado
-	SBRS	R16, 3				// Salta si el bit 3 del PIND es 1 (no apachado)
-	RJMP	DECREMENTAR1
-	CALL	REVISAR_CONT1		// El contador esta en su propia subrutina
-	CALL	REVISAR_CONT2
+	RJMP	MAIN				// Al revisar todos los bits 
 
 // Sub-rutina (no de interrupcion)
+// Delay
 DELAY:
 	LDI		R18, 0xFF
 SUB_DELAY1:
@@ -89,31 +85,24 @@ SUB_DELAY3:
 	BRNE	SUB_DELAY3
 	RET	
 
-// Sub-rutina para revisar contador1
-REVISAR_CONT1
-	
-
-
+// Sub-rutina para revisar contadores
 INCREMENTAR1: 
 	CPI		R19, 0x0F			// Compara el valor del contador 
-    BREQ	RESET_COUNTER		// Si el contador está en 15, reinicia el contador
+    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta la instruccion
 	INC		R19					// R19 aumentará si aun no llega a 15
-	SBI		PINB, 0				// Toggle de PB0 -la salida-(cambio de estado pb1)
-	OUT		PORTB, R19
-	RJMP	MAIN				// Vuelve al ciclo main a repetir
+	OUT		PORTB, R19				
+	RET							// Vuelve al ciclo main a repetir
 
-// Para decrementar contador
 DECREMENTAR1: 
 	CPI		R19, 0x00			// Si el contador llega a 0, reiniciar el contador
-	BREQ	MAIN				// Si es igual a 0 no hace nada y vuelve a main
+	BREQ	RET					// Si es igual a 0 no hace nada y vuelve a main
 	DEC		R19					// R19 decrementará
-	SBI		PINB, 1				// Toggle de PB1 (cambio de estado pb 2)
 	OUT		PORTB, R19
-	RJMP	MAIN
+	RET
 
 RESET_COUNTER1:
     LDI		R19, 0x00			// Resetea el contador a 0
-    RJMP	MAIN				// Regresa al main
+	OUT		PORTB, R19			// Lo muestra en el portB
 	RET
 
 // Sub-rutina para revisar contador2
