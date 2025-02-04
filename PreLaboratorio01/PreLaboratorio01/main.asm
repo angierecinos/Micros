@@ -53,9 +53,16 @@ MAIN:
 	
 	// Volver a leer PIND
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
+	
 	// Verificar si el boton1 esta presionado
-	SBRS	R16, 2				// Salta si el bit 2 del PIND es 1 (no apachado)
-	RJMP	INCREMENTAR1
+	SBIS	R16, 0				// Salta si el bit 0 del PIND es 1 (no apachado)
+	CALL	INCREMENTAR1		// Si el bit 0 es 0 el boton esta apachado y (+)
+	SBIS	R16, 1				// Salta si el bit 1 del PIND es 1 (boton no apachado)
+	CALL	DECREMENTAR1		// Si el bit 1 es 0 el boton esta apachado y (-)
+	SBIS	R16, 2				// Salta si el bit 2 del PIND es 1
+	CALL	INCREMENTAR2		// Si el bit 2 es 0 el boton esta apachado y (+)
+	SBIS	R16, 3				// Salta si el bit 3 del PIND es 1
+	CALL	DECREMENTAR2		// Si el bit 3 es 0 el boton esta apachado y (-)
 
 	// Verificar si el boton2 esta presionado
 	SBRS	R16, 3				// Salta si el bit 3 del PIND es 1 (no apachado)
