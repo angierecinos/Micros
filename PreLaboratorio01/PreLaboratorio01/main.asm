@@ -110,10 +110,10 @@ INCREMENTAR2:
     BREQ	RESET_COUNTER2		// Si el contador está en 15, reinicia el contador
 	INC		R20					// R20 aumentará si aun no llega a 15
 	MOV		R21, R20			// Se copia el resultado 
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
 	ADD		R21, R19			// Suma los bits para mostrarlos
 	OUT		PORTD, R21
 	RET							// Vuelve al ciclo main a repetir
@@ -133,5 +133,11 @@ DECREMENTAR2:
 
 RESET_COUNTER2:
     LDI		R20, 0x00			// Resetea el contador a 0
-	OUT		PORTD, R20			// Lo muestra en el portB
+	MOV		R21, R20
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ADD		R21, R19			// Suma los bits para mostrarlos
+	OUT		PORTD, R21			// Lo muestra en el portB
 	RET
