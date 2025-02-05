@@ -24,18 +24,18 @@ OUT		SPH, R16				// Configura sph = 0x03) -> r16
 // Configurar el microcontrolador
 SETUP:
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
-	//	Configurar PORTD como entrada con pull-up habilitado 
-	//	PORTD como entrada con pull-up habilitado
+	//	Configurar PORTB como entrada con pull-up habilitado 
+	//	PORTB como entrada con pull-up habilitado
 	LDI		R16, 0x00	
-	OUT		DDRD, R16			// Setear puerto D como entrada (0 -> recibe)
+	OUT		DDRB, R16			// Setear puerto B como entrada (0 -> recibe)
 	LDI		R16, 0xFF	
-	OUT		PORTD, R16			// Habilitar pull-ups en puerto D
+	OUT		PORTB, R16			// Habilitar pull-ups en puerto B
 
-	//	PORTB como salida inicialmente encendido
+	//	PORTD como salida inicialmente encendido
 	LDI		R16, 0xFF
-	OUT		DDRB, R16			// Setear puerto B como salida (1 -> no recibe)
+	OUT		DDRD, R16			// Setear puerto B como salida (1 -> no recibe)
 	LDI		R16, 0b0001			// Primer bit encendido
-	OUT		PORTB, R16			// Encender primer bit del puerto B
+	OUT		PORTD, R16			// Encender primer bit del puerto D
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
 	LDI		R19, 0x00			// Variable para contador1
@@ -43,11 +43,11 @@ SETUP:
 
 // Loop infinito
 MAIN:
-	IN		R16, PIND			// Guardando el estado de PORTD (pb) en R16 0xFF
+	IN		R16, PINB			// Guardando el estado de PORTB (pb) en R16 0xFF
 	CP		R17, R16			// Comparamos estado viejo con estado nuevo
 	BREQ	MAIN				// Si no hay cambio, salta a MAIN
 	CALL	DELAY				// Si hay cambio, salta a call y hace delay
-	IN		R16, PIND			// Por si ocurre rebote vuelve a leer y a comparar
+	IN		R16, PINB			// Por si ocurre rebote vuelve a leer y a comparar
 	CP		R17, R16
 	BREQ	MAIN				// Si después del delay sigue igual, no hace nada
 	
@@ -55,13 +55,13 @@ MAIN:
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
 	
 	// Verificar si el boton1 esta presionado
-	SBIS	R16, 0				// Salta si el bit 0 del PIND es 1 (no apachado)
+	SBIS	PINB, 0				// Salta si el bit 0 del PINB es 1 (no apachado)
 	CALL	INCREMENTAR1		// Si el bit 0 es 0 el boton esta apachado y (+)
-	SBIS	R16, 1				// Salta si el bit 1 del PIND es 1 (boton no apachado)
+	SBIS	PINB, 1				// Salta si el bit 1 del PINB es 1 (boton no apachado)
 	CALL	DECREMENTAR1		// Si el bit 1 es 0 el boton esta apachado y (-)
-	SBIS	R16, 2				// Salta si el bit 2 del PIND es 1
+	SBIS	PINB, 2				// Salta si el bit 2 del PINB es 1
 	CALL	INCREMENTAR2		// Si el bit 2 es 0 el boton esta apachado y (+)
-	SBIS	R16, 3				// Salta si el bit 3 del PIND es 1
+	SBIS	PINB, 3				// Salta si el bit 3 del PINB es 1
 	CALL	DECREMENTAR2		// Si el bit 3 es 0 el boton esta apachado y (-)
 	RJMP	MAIN				// Al revisar todos los bits 
 
@@ -86,47 +86,52 @@ SUB_DELAY3:
 	RET	
 
 // Sub-rutina para revisar contadores
-INCREMENTAR1: 
+INCREMENTAR1: 	
 	CPI		R19, 0x0F			// Compara el valor del contador 
-    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta la instruccion
-	INC		R19					// R19 aumentará si aun no llega a 15
-	OUT		PORTB, R19				
+    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta a mostrarlo
+	INC		R19					// Incrementa el valor
+	OUT		PORTD, R19			// Muestra en el portD el valor
 	RET							// Vuelve al ciclo main a repetir
 
 DECREMENTAR1: 
 	CPI		R19, 0x00			// Si el contador llega a 0, reiniciar el contador
-	BREQ	RET					// Si es igual a 0 no hace nada y vuelve a main
+	BREQ	RESET_COUNTER1		// Si es igual a 0 no hace nada y vuelve a main
 	DEC		R19					// R19 decrementará
-	OUT		PORTB, R19			// Muestra en el PORTB el cambio de contador
+	OUT		PORTD, R19			// Muestra en el PORTD el cambio de contador
 	RET							// Regresa a main si ya decremento
 
 RESET_COUNTER1:
     LDI		R19, 0x00			// Resetea el contador a 0
-	OUT		PORTB, R19			// Lo muestra en el portB
+	OUT		PORTD, R19			// Muestra el 0 y regresa
 	RET
 
 INCREMENTAR2: 
 	CPI		R20, 0x0F			// Compara el valor del contador 
     BREQ	RESET_COUNTER2		// Si el contador está en 15, reinicia el contador
-	INC		R20					// R19 aumentará si aun no llega a 15
-	OUT		PORTB, R20
+	INC		R20					// R20 aumentará si aun no llega a 15
+	MOV		R21, R20			// Se copia el resultado 
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ADD		R21, R19			// Suma los bits para mostrarlos
+	OUT		PORTD, R21
+	RET							// Vuelve al ciclo main a repetir
+
+DECREMENTAR2: 
+	CPI		R20, 0x00			// Compara el valor del contador 
+    BREQ	RESET_COUNTER2		// Si el contador está en 15, reinicia el contador
+	DEC		R20					// R20 aumentará si aun no llega a 15
+	MOV		R21, R20			// Se copia el resultado 
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ADD		R21, R19			// Suma los bits para mostrarlos
+	OUT		PORTD, R21
 	RET							// Vuelve al ciclo main a repetir
 
 RESET_COUNTER2:
     LDI		R20, 0x00			// Resetea el contador a 0
-	OUT		PORTB, R20			// Lo muestra en el portB
-	RET
-
-// Para decrementar contador
-DECREMENTAR2: 
-	CPI		R20, 0x00			// Si el contador llega a 0, reiniciar el contador
-	BREQ	MAIN				// Si es igual a 0 no hace nada y vuelve a main
-	DEC		R20					// R19 decrementará
-	SBI		PINB, 1				// Toggle de PB1 (cambio de estado pb 2)
-	OUT		PORTB, R20
-	RJMP	MAIN
-
-RESET_COUNTER2:
-    LDI		R20, 0x00			// Resetea el contador a 0
-    RJMP	MAIN				// Regresa al main
+	OUT		PORTD, R20			// Lo muestra en el portB
 	RET
