@@ -25,11 +25,15 @@ OUT		SPH, R16				// Configura sph = 0x03) -> r16
 SETUP:
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
 	//	Configurar PORTB como entrada con pull-up habilitado 
-	//	PORTB como entrada con pull-up habilitado
-	LDI		R16, 0x00	
+	//	PORTB y PORTC como entrada con pull-up habilitado
+	LDI		R16, 0x00
+	LDI		R23, 0x00	
 	OUT		DDRB, R16			// Setear puerto B como entrada (0 -> recibe)
+	OUT		DDRC, R23
 	LDI		R16, 0xFF	
+	LDI		R23, 0XFF
 	OUT		PORTB, R16			// Habilitar pull-ups en puerto B
+	OUT		PORTC, R23
 
 	//	PORTD como salida inicialmente encendido
 	LDI		R16, 0xFF
@@ -51,7 +55,7 @@ MAIN:
 	CP		R17, R16
 	BREQ	MAIN				// Si después del delay sigue igual, no hace nada
 	
-	// Volver a leer PIND
+	// Volver a leer PINB
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
 	
 	// Verificar si el boton1 esta presionado
@@ -63,6 +67,8 @@ MAIN:
 	CALL	INCREMENTAR2		// Si el bit 2 es 0 el boton esta apachado y (+)
 	SBIS	PINB, 3				// Salta si el bit 3 del PINB es 1
 	CALL	DECREMENTAR2		// Si el bit 3 es 0 el boton esta apachado y (-)
+	SBIS	PINB, 4				// Salta si el bit 4 del PINB es 1
+	CALL	SUMA				// Se hace la suma
 	RJMP	MAIN				// Al revisar todos los bits 
 
 // Sub-rutina (no de interrupcion)
@@ -141,3 +147,9 @@ RESET_COUNTER2:
 	ADD		R21, R19			// Suma los bits para mostrarlos
 	OUT		PORTD, R21			// Lo muestra en el portB
 	RET
+
+SUMA:
+	MOV		R22, R19			// Se copia el contador 1 para no alterarlo
+	ADD		R22, R20			// Se suman ambos contadores y se guardan
+	OUT		PORTC, R22			// Se muestra el resultado en el portC
+	RET							// Si tiene overflow se muestra en led
