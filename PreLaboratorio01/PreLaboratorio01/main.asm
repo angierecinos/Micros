@@ -23,6 +23,13 @@ OUT		SPH, R16				// Configura sph = 0x03) -> r16
 
 // Configurar el microcontrolador
 SETUP:
+	// Utilizando oscilador a 1 MHz
+	// Se configura prescaler principal
+	LDI		R16, (1 << CLKPCE)		// Se selecciona el bit del CLK
+	STS		CLKPR, R16				// Se habilitar cambio para el prescaler
+	LDI		R16, 0b00000100			// En la tabla se ubica qué bits deben encender
+	STS		CLKPR, R16				// Se configura prescaler a 16 para 1MHz
+	
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
 	//	Configurar PORTB como entrada con pull-up habilitado 
 	//	PORTB como entrada con pull-up habilitado
