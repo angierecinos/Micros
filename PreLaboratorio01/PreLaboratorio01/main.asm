@@ -25,21 +25,21 @@ OUT		SPH, R16				// Configura sph = 0x03) -> r16
 SETUP:
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
 	//	Configurar PORTB como entrada con pull-up habilitado 
-	//	PORTB y PORTC como entrada con pull-up habilitado
+	//	PORTB como entrada con pull-up habilitado
 	LDI		R16, 0x00
-	LDI		R23, 0x00	
 	OUT		DDRB, R16			// Setear puerto B como entrada (0 -> recibe)
-	OUT		DDRC, R23
 	LDI		R16, 0xFF	
-	LDI		R23, 0XFF
 	OUT		PORTB, R16			// Habilitar pull-ups en puerto B
-	OUT		PORTC, R23
 
-	//	PORTD como salida inicialmente encendido
+	//	PORTD y PORTC como salida inicialmente encendido
 	LDI		R16, 0xFF
-	OUT		DDRD, R16			// Setear puerto B como salida (1 -> no recibe)
-	LDI		R16, 0b0001			// Primer bit encendido
-	OUT		PORTD, R16			// Encender primer bit del puerto D
+	LDI		R23, 0XFF
+	OUT		DDRD, R16			// Setear puerto D como salida (1 -> no recibe)
+	OUT		DDRC, R16
+	LDI		R16, 0b0001			// Primer bit encendido (prueba)
+	LDI		R23, 0b0001
+	OUT		PORTD, R16			// Encender primer bit del puerto D y C
+	OUT		PORTC, R23
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
 	LDI		R19, 0x00			// Variable para contador1
@@ -96,56 +96,38 @@ INCREMENTAR1:
 	CPI		R19, 0x0F			// Compara el valor del contador 
     BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta a mostrarlo
 	INC		R19					// Incrementa el valor
-	OUT		PORTD, R19			// Muestra en el portD el valor
+	CALL	VINCULAR			// Muestra en el portD el valor
 	RET							// Vuelve al ciclo main a repetir
 
 DECREMENTAR1: 
 	CPI		R19, 0x00			// Si el contador llega a 0, reiniciar el contador
 	BREQ	RESET_COUNTER1		// Si es igual a 0 no hace nada y vuelve a main
 	DEC		R19					// R19 decrementará
-	OUT		PORTD, R19			// Muestra en el PORTD el cambio de contador
+	CALL	VINCULAR			// Muestra en el PORTD el cambio de contador
 	RET							// Regresa a main si ya decremento
 
 RESET_COUNTER1:
     LDI		R19, 0x00			// Resetea el contador a 0
-	OUT		PORTD, R19			// Muestra el 0 y regresa
+	CALL	VINCULAR			// Muestra el 0 y regresa
 	RET
 
 INCREMENTAR2: 
 	CPI		R20, 0x0F			// Compara el valor del contador 
     BREQ	RESET_COUNTER2		// Si el contador está en 15, reinicia el contador
 	INC		R20					// R20 aumentará si aun no llega a 15
-	MOV		R21, R20			// Se copia el resultado 
-	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ADD		R21, R19			// Suma los bits para mostrarlos
-	OUT		PORTD, R21
+	CALL	VINCULAR
 	RET							// Vuelve al ciclo main a repetir
 
 DECREMENTAR2: 
 	CPI		R20, 0x00			// Compara el valor del contador 
     BREQ	RESET_COUNTER2		// Si el contador está en 15, reinicia el contador
 	DEC		R20					// R20 aumentará si aun no llega a 15
-	MOV		R21, R20			// Se copia el resultado 
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ADD		R21, R19			// Suma los bits para mostrarlos
-	OUT		PORTD, R21
+	CALL	VINCULAR			// Hace corrimiento de los bits para mostrar ambos
 	RET							// Vuelve al ciclo main a repetir
 
 RESET_COUNTER2:
     LDI		R20, 0x00			// Resetea el contador a 0
-	MOV		R21, R20
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ROL		R21 				// Corre los bits 1 a la izquierda sin el carry
-	ADD		R21, R19			// Suma los bits para mostrarlos
-	OUT		PORTD, R21			// Lo muestra en el portB
+	CALL	VINCULAR
 	RET
 
 SUMA:
@@ -153,3 +135,13 @@ SUMA:
 	ADD		R22, R20			// Se suman ambos contadores y se guardan
 	OUT		PORTC, R22			// Se muestra el resultado en el portC
 	RET							// Si tiene overflow se muestra en led
+
+VINCULAR: 
+	MOV		R21, R20
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
+	ADD		R21, R19			// Suma los bits para mostrarlos
+	OUT		PORTD, R21			// Mostrar en ambos contadores
+	RET
