@@ -55,17 +55,16 @@ SETUP:
 MAIN:
 	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
 	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
-	RJMP	MAIN_LOOP			// Reiniciar loop
+	RJMP	MAIN			// Reiniciar loop
 	SBI		TIFR0, TOV0			// Limpiar bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
 	INC		COUNTER
 	CPI		COUNTER, 10			// R20 = 10 after 100ms (since TCNT0 is set to 100 ms)
-	BRNE	MAIN_LOOP
+	BRNE	MAIN
 	CLR		COUNTER
-	SBI		PINB, PB5
-	SBI		PINB, PB0
-	RJMP	MAIN_LOOP
+	CALL	SUMAR
+	RJMP	MAIN
 
 // Sub-rutina (no de interrupcion)
 INIT_TMR0:
@@ -73,4 +72,16 @@ INIT_TMR0:
 	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
 	LDI		R16, 158					// Indicar desde donde inicia
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
+	RET
+
+SUMAR: 	
+	CPI		R19, 0x0F			// Compara el valor del contador 
+    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta a mostrarlo
+	INC		R19					// Incrementa el valor
+	OUT		PORTD, R19
+	RET							// Vuelve al ciclo main a repetir
+
+RESET_COUNTER1:
+    LDI		R19, 0x00			// Resetea el contador a 0
+	OUT		PORTD, R19
 	RET

@@ -25,7 +25,7 @@ OUT		SPH, R16				// Configura sph = 0x03) -> r16
 SETUP:
 	// Utilizando oscilador a 1 MHz
 	// Se configura prescaler principal
-	LDI		R16, (1 << CLKPCE)		// Se selecciona el bit del CLK
+	LDI		R16, (1 << CLKPCE)		// Se selecciona el bit del CLK (bit 7) 
 	STS		CLKPR, R16				// Se habilitar cambio para el prescaler
 	LDI		R16, 0b00000100			// En la tabla se ubica qué bits deben encender
 	STS		CLKPR, R16				// Se configura prescaler a 16 para 1MHz
