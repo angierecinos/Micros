@@ -14,6 +14,7 @@
 .include "M328PDEF.inc"			// Incluye definiciones del ATMega328
 .cseg							// Codigo en la flash
 .org 0x0000						// Donde inicia el programa
+.def COUNTER = R20				// Counter de desbordamientos
 
 // Configurar el SP en 0x03FF (al final de la SRAM) 
 LDI		R16, LOW(RAMEND)		// Carga los bits bajos (0x0FF)
@@ -31,7 +32,7 @@ SETUP:
 	STS		CLKPR, R16				// Se configura prescaler a 16 para 1MHz
 	
 	// Inicializar timer0
-	CALL INIT_TMR0
+	CALL	INIT_TMR0
 
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
 	//	Configurar PORTB como entrada con pull-up habilitado 
@@ -45,32 +46,31 @@ SETUP:
 	LDI		R16, 0xFF
 	OUT		DDRD, R16			// Setear puerto D como salida (1 -> no recibe)
 	LDI		R16, 0b0001			// Primer bit encendido (prueba)
-	OUT		PORTD, R16			// Encender primer bit del puerto D y C
+	OUT		PORTD, R16			// Encender primer bit del puerto D
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
-	LDI		R19, 0x00			// Variable para contador
+	LDI		R19, 0x00			// Variable para contador de leds
 
-/****************************************/
 // Loop Infinito
 MAIN:
-	IN R16, TIFR0 // Leer registro de interrupcion de TIMER 0
-	SBRS R16, TOV0 // Salta si el bit 0 est "set" (TOV0 bit)?
-	RJMP MAIN_LOOP // Reiniciar loop
-	SBI TIFR0, TOV0 // Limpiar bandera de "overflow"
-	LDI R16, 100
-	OUT TCNT0, R16 // Volver a cargar valor inicial en TCNT0
-	INC COUNTER
-	CPI COUNTER, 50 // R20 = 50 after 500ms (since TCNT0 is set to 10 ms)
-	BRNE MAIN_LOOP
-	CLR COUNTER
-	SBI PINB, PB5
-	SBI PINB, PB0
-	RJMP MAIN_LOOP
+	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
+	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
+	RJMP	MAIN_LOOP			// Reiniciar loop
+	SBI		TIFR0, TOV0			// Limpiar bandera de overflow (TOV0) 
+	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
+	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
+	INC		COUNTER
+	CPI		COUNTER, 10			// R20 = 10 after 100ms (since TCNT0 is set to 100 ms)
+	BRNE	MAIN_LOOP
+	CLR		COUNTER
+	SBI		PINB, PB5
+	SBI		PINB, PB0
+	RJMP	MAIN_LOOP
 
 // Sub-rutina (no de interrupcion)
 INIT_TMR0:
-	LDI R16, (1<<CS01) | (1<<CS00)
-	OUT TCCR0B, R16					// Setear prescaler del TIMER 0 a 64
-	LDI R16, 100
-	OUT TCNT0, R16					// Cargar valor inicial en TCNT0
+	LDI		R16, (1<<CS02) | (1<<CS00)
+	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
+	LDI		R16, 158					// Indicar desde donde inicia
+	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
 	RET
