@@ -55,7 +55,7 @@ SETUP:
 MAIN:
 	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
 	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
-	RJMP	MAIN			// Reiniciar loop
+	RJMP	MAIN				// Reiniciar loop
 	SBI		TIFR0, TOV0			// Limpiar bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
