@@ -14,7 +14,7 @@
 .include "M328PDEF.inc"			// Incluye definiciones del ATMega328
 .cseg							// Codigo en la flash
 .org 0x0000						// Donde inicia el programa
-.def COUNTER = R20				// Counter de desbordamientos
+//.def COUNTER = R20				// Counter de desbordamientos
 
 // Configurar el SP en 0x03FF (al final de la SRAM) 
 LDI		R16, LOW(RAMEND)		// Carga los bits bajos (0x0FF)
@@ -59,10 +59,10 @@ MAIN:
 	SBI		TIFR0, TOV0			// Limpiar bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
-	INC		COUNTER
-	CPI		COUNTER, 10			// R20 = 10 after 100ms (since TCNT0 is set to 100 ms)
-	BRNE	MAIN
-	CLR		COUNTER
+	//INC		COUNTER
+	//CPI		COUNTER, 10			// R20 = 10 after 100ms (since TCNT0 is set to 100 ms)
+	//BRNE	MAIN
+	//CLR		COUNTER
 	CALL	SUMAR
 	RJMP	MAIN
 
