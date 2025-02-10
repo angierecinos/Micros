@@ -22,6 +22,8 @@ OUT		SPL, R16				// Configura spl = 0xFF -> r16
 LDI		R16, HIGH(RAMEND)		// Carga los bits altos (0x03)
 OUT		SPH, R16				// Configura sph = 0x03) -> r16
 
+tablita: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x76, 0x1F, 0x4E, 0x3D, 0x4F, 0x47, 
+
 // Configurar el microcontrolador
 SETUP:
 	// Utilizando oscilador a 1 MHz
@@ -32,7 +34,7 @@ SETUP:
 	STS		CLKPR, R16				// Se configura prescaler a 16 para 1MHz
 	
 	// Inicializar timer0
-	CALL	INIT_TMR0
+	// CALL	INIT_TMR0
 
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
 	//	Configurar PORTB como entrada con pull-up habilitado 
@@ -45,34 +47,76 @@ SETUP:
 	//	PORTD como salida inicialmente encendido
 	LDI		R16, 0xFF
 	OUT		DDRD, R16			// Setear puerto D como salida (1 -> no recibe)
-	LDI		R16, 0b0001			// Primer bit encendido (prueba)
-	OUT		PORTD, R16			// Encender primer bit del puerto D
+	OUT		DDRC, R16
+	OUT		PORTD, R16			// Leds para display
+	OUT		PORTC, R16			// Leds de contador normal
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
-	LDI		R19, 0x00			// Variable para contador de leds
+	LDI		R19, 0x00			// Variable para contador de leds en Display7
 
-// Loop Infinito
+// Loop infinito
 MAIN:
+	// Revisión de botones
+	IN		R16, PINB			// Guardando el estado de PORTB (pb) en R16 0xFF
+	CP		R17, R16			// Comparamos estado viejo con estado nuevo
+	BREQ	MAIN				// Si no hay cambio, salta a MAIN
+	CALL	DELAY				// Si hay cambio, salta a call y hace delay
+	IN		R16, PINB			// Por si ocurre rebote vuelve a leer y a comparar
+	CP		R17, R16
+	BREQ	MAIN				// Si después del delay sigue igual, no hace nada
+	
+	// Volver a leer PINB
+	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
+	
+	// Verificar si el boton1 esta presionado
+	SBIS	PINB, 0				// Salta si el bit 0 del PINB es 1 (no apachado)
+	CALL	INCREMENTAR1		// Si el bit 0 es 0 el boton esta apachado y (+)
+	SBIS	PINB, 1				// Salta si el bit 1 del PINB es 1 (boton no apachado)
+	CALL	DECREMENTAR1		// Si el bit 1 es 0 el boton esta apachado y (-)
+	RJMP	MAIN				// Al revisar todos los bits 
+	
+	/*
 	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
 	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
 	RJMP	MAIN				// Reiniciar loop
-	SBI		TIFR0, TOV0			// Limpiar bandera de overflow (TOV0) 
+	SBI		TIFR0, TOV0			// Apaga bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
 	//INC		COUNTER
-	//CPI		COUNTER, 10			// R20 = 10 after 100ms (since TCNT0 is set to 100 ms)
+	//CPI		COUNTER, 10			
 	//BRNE	MAIN
 	//CLR		COUNTER
 	CALL	SUMAR
 	RJMP	MAIN
+	*/
 
 // Sub-rutina (no de interrupcion)
-INIT_TMR0:
+// Delay
+DELAY:
+	LDI		R18, 0xFF
+SUB_DELAY1:
+	DEC		R18
+	CPI		R18, 0
+	BRNE	SUB_DELAY1
+	LDI		R18, 0xFF
+SUB_DELAY2:
+	DEC		R18
+	CPI		R18, 0
+	BRNE	SUB_DELAY2
+	LDI		R18, 0xFF
+SUB_DELAY3:
+	DEC		R18
+	CPI		R18, 0
+	BRNE	SUB_DELAY3
+	RET	
+
+// Sub-rutina (no de interrupcion)
+/*INIT_TMR0:
 	LDI		R16, (1<<CS02) | (1<<CS00)
 	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
 	LDI		R16, 158					// Indicar desde donde inicia
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
-	RET
+	RET*/
 
 SUMAR: 	
 	CPI		R19, 0x0F			// Compara el valor del contador 
