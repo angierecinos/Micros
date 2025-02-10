@@ -145,6 +145,7 @@ SUMA:
 
 VINCULAR: 
 	MOV		R21, R20
+	//SWAP R21
 	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
 	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
 	LSL		R21 				// Corre los bits 1 a la izquierda sin el carry
