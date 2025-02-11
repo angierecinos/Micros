@@ -14,7 +14,7 @@
 .include "M328PDEF.inc"			// Incluye definiciones del ATMega328
 .cseg							// Codigo en la flash
 .org 0x0000						// Donde inicia el programa
-//.def COUNTER = R20				// Counter de desbordamientos
+.def COUNTER = R20				// Counter de desbordamientos
 
 // Configurar el SP en 0x03FF (al final de la SRAM) 
 LDI		R16, LOW(RAMEND)		// Carga los bits bajos (0x0FF)
@@ -22,7 +22,7 @@ OUT		SPL, R16				// Configura spl = 0xFF -> r16
 LDI		R16, HIGH(RAMEND)		// Carga los bits altos (0x03)
 OUT		SPH, R16				// Configura sph = 0x03) -> r16
 
-tablita: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x76, 0x1F, 0x4E, 0x3D, 0x4F, 0x47, 
+TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x76, 0x1F, 0x4E, 0x3D, 0x4F, 0x47
 
 // Configurar el microcontrolador
 SETUP:
@@ -49,13 +49,16 @@ SETUP:
 	OUT		DDRD, R16			// Setear puerto D como salida (1 -> no recibe)
 	OUT		DDRC, R16
 	OUT		PORTD, R16			// Leds para display
-	OUT		PORTC, R16			// Leds de contador normal
+	OUT		PORTC, R16			// Leds de contador normal - POST
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
 	LDI		R19, 0x00			// Variable para contador de leds en Display7
+	LDI		COUNTER, 0x00
+	CALL	INIT_DIS7
 
 // Loop infinito
 MAIN:
+	
 	// Revisión de botones
 	IN		R16, PINB			// Guardando el estado de PORTB (pb) en R16 0xFF
 	CP		R17, R16			// Comparamos estado viejo con estado nuevo
@@ -110,6 +113,42 @@ SUB_DELAY3:
 	BRNE	SUB_DELAY3
 	RET	
 
+// Se inicia el display
+INIT_DIS7:
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	LPM		R16, Z
+	OUT		PORTD, R16
+	RET
+
+INCREMENTAR1: 	
+	ADIW	Z, 1				// Compara el valor del contador 
+	INC		COUNTER				// Se aumenta un contador
+	CPI		COUNTER, 0x10		// Se compara para ver si ya sumó 
+    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta a mostrarlo
+	LPM		R16, Z
+	OUT		PORTD, R16
+	RET							// Vuelve al ciclo main a repetir
+
+RESET_COUNTER1:
+    LDI		COUNTER, 0x00		// Resetea el contador a 0
+	CALL	INIT_DIS7			// Reasigna la tabla al 0
+	RET
+
+DECREMENTAR1: 	
+	SBIW	Z, 1				// Compara el valor del contador 
+	CPI		COUNTER, 0xFF		// Se compara para ver si ya sumó 
+    BREQ	RESET_COUNTER2		// Si al comparar no es igual, salta a mostrarlo
+	DEC		COUNTER				// Se aumenta un contador
+	LPM		R16, Z
+	OUT		PORTD, R16
+	RET							// Vuelve al ciclo main a repetir
+
+RESET_COUNTER2:
+    LDI		COUNTER, 0x0F		// Resetea el contador a 15
+	CALL	INIT_DIS7			// Reinicia el valor de la tabla
+	ADIW	Z, 15				// Carga el último valor de la tabla 
+	RET
 // Sub-rutina (no de interrupcion)
 /*INIT_TMR0:
 	LDI		R16, (1<<CS02) | (1<<CS00)
@@ -118,14 +157,3 @@ SUB_DELAY3:
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
 	RET*/
 
-SUMAR: 	
-	CPI		R19, 0x0F			// Compara el valor del contador 
-    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta a mostrarlo
-	INC		R19					// Incrementa el valor
-	OUT		PORTD, R19
-	RET							// Vuelve al ciclo main a repetir
-
-RESET_COUNTER1:
-    LDI		R19, 0x00			// Resetea el contador a 0
-	OUT		PORTD, R19
-	RET
