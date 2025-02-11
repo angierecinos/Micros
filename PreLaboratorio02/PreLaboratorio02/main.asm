@@ -137,9 +137,9 @@ RESET_COUNTER1:
 
 DECREMENTAR1: 	
 	SBIW	Z, 1				// Compara el valor del contador 
+	DEC		COUNTER				// Se aumenta un contador
 	CPI		COUNTER, 0xFF		// Se compara para ver si ya sumó 
     BREQ	RESET_COUNTER2		// Si al comparar no es igual, salta a mostrarlo
-	DEC		COUNTER				// Se aumenta un contador
 	LPM		R16, Z
 	OUT		PORTD, R16
 	RET							// Vuelve al ciclo main a repetir
