@@ -15,6 +15,7 @@
 .cseg							// Codigo en la flash
 .org 0x0000						// Donde inicia el programa
 .def COUNTER = R20				// Counter de desbordamientos
+.def COUNTER2 = R21
 
 // Configurar el SP en 0x03FF (al final de la SRAM) 
 LDI		R16, LOW(RAMEND)		// Carga los bits bajos (0x0FF)
@@ -22,7 +23,7 @@ OUT		SPL, R16				// Configura spl = 0xFF -> r16
 LDI		R16, HIGH(RAMEND)		// Carga los bits altos (0x03)
 OUT		SPH, R16				// Configura sph = 0x03) -> r16
 
-TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x76, 0x1F, 0x4E, 0x3D, 0x4F, 0x47
+TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x77, 0x1F, 0x4E, 0x3D, 0x4F, 0x47
 
 // Configurar el microcontrolador
 SETUP:
@@ -34,7 +35,7 @@ SETUP:
 	STS		CLKPR, R16				// Se configura prescaler a 16 para 1MHz
 	
 	// Inicializar timer0
-	// CALL	INIT_TMR0
+	CALL	INIT_TMR0
 
 	//	Configurar pines de entrada y salida (DDRx, PORTx, PINx) 
 	//	Configurar PORTB como entrada con pull-up habilitado 
@@ -52,13 +53,14 @@ SETUP:
 	OUT		PORTC, R16			// Leds de contador normal - POST
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
-	LDI		R19, 0x00			// Variable para contador de leds en Display7
-	LDI		COUNTER, 0x00
+	LDI		R19, 0x00			// Variable para contador de leds
+	LDI		COUNTER, 0x00		// Variable para contador de leds en Display7
 	CALL	INIT_DIS7
 
 // Loop infinito
 MAIN:
 	
+
 	// Revisión de botones
 	IN		R16, PINB			// Guardando el estado de PORTB (pb) en R16 0xFF
 	CP		R17, R16			// Comparamos estado viejo con estado nuevo
@@ -76,22 +78,22 @@ MAIN:
 	CALL	INCREMENTAR1		// Si el bit 0 es 0 el boton esta apachado y (+)
 	SBIS	PINB, 1				// Salta si el bit 1 del PINB es 1 (boton no apachado)
 	CALL	DECREMENTAR1		// Si el bit 1 es 0 el boton esta apachado y (-)
-	RJMP	MAIN				// Al revisar todos los bits 
+	//RJMP	MAIN				// Al revisar todos los bits 
 	
-	/*
+	// Sumar el contador binario de 4 bits
 	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
 	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
 	RJMP	MAIN				// Reiniciar loop
 	SBI		TIFR0, TOV0			// Apaga bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
-	//INC		COUNTER
-	//CPI		COUNTER, 10			
-	//BRNE	MAIN
-	//CLR		COUNTER
+	INC		COUNTER2
+	CPI		COUNTER2, 10			
+	BRNE	MAIN
+	CLR		COUNTER2
 	CALL	SUMAR
 	RJMP	MAIN
-	*/
+	
 
 // Sub-rutina (no de interrupcion)
 // Delay
@@ -138,22 +140,29 @@ RESET_COUNTER1:
 DECREMENTAR1: 	
 	SBIW	Z, 1				// Compara el valor del contador 
 	DEC		COUNTER				// Se aumenta un contador
-	CPI		COUNTER, 0xFF		// Se compara para ver si ya sumó 
-    BREQ	RESET_COUNTER2		// Si al comparar no es igual, salta a mostrarlo
+	CPI		COUNTER, 0xFF		// Se compara para ver si ya resto max 
+    BREQ	RESET_COUNTER1		// Si al comparar no es igual, salta a mostrarlo
 	LPM		R16, Z
 	OUT		PORTD, R16
 	RET							// Vuelve al ciclo main a repetir
 
-RESET_COUNTER2:
-    LDI		COUNTER, 0x0F		// Resetea el contador a 15
-	CALL	INIT_DIS7			// Reinicia el valor de la tabla
-	ADIW	Z, 15				// Carga el último valor de la tabla 
-	RET
+
 // Sub-rutina (no de interrupcion)
-/*INIT_TMR0:
+INIT_TMR0:
 	LDI		R16, (1<<CS02) | (1<<CS00)
 	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
 	LDI		R16, 158					// Indicar desde donde inicia
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
-	RET*/
+	RET
 
+SUMAR: 	
+	CPI		R19, 0x0F			// Compara el valor del contador 
+    BREQ	RESET_COUNTER2			// Si al comparar no es igual, salta a mostrarlo
+	INC		R19				// Incrementa el valor
+	OUT		PORTC, R19
+	RET								// Vuelve al ciclo main a repetir
+
+RESET_COUNTER2:
+    LDI		R19, 0x00				// Resetea el contador a 0
+	OUT		PORTC, R19
+	RET
