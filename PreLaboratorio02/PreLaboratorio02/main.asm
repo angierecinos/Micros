@@ -50,12 +50,13 @@ SETUP:
 	LDI		R16, 0xFF
 	OUT		DDRD, R16			// Setear puerto D como salida (1 -> no recibe)
 	OUT		DDRC, R16
-	//OUT		PORTD, R16			// Leds para display
-	//OUT		PORTC, R16			// Leds de contador normal - POST
-	LDI		R16, 0b0001			// Primer bit encendido (prueba)
-	LDI		R23, 0b0001
+	SBI		DDRB, PB5
+	
+	LDI		R16, 0x00			// Primer bit encendido (prueba)
+	LDI		R23, 0x00
 	OUT		PORTD, R16			// Encender primer bit del puerto D y C
 	OUT		PORTC, R23
+	CBI		PORTB, PB5
 	 
 	LDI		R17, 0xFF			// Variable para guardar el estado de botones
 	LDI		R19, 0x00			// Variable para contador de leds
@@ -89,15 +90,15 @@ MAIN:
 	CALL	TIMER
 // ----------------------------- Sub-rutina de contador 4 bits	----------------------------------------
 TIMER:
-	//IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
-	//SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
-	//RJMP	MAIN
+	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
+	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
+	RJMP	MAIN
 	SBI		TIFR0, TOV0			// Apaga bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
 	INC		COUNTER2			// Como la idea es contar que 10 veces se desborde 100 ms = 1 segundo
 	CPI		COUNTER2, 10		// 0.1 * 10 = 1 
-	BRNE	TIMER				// Revisa si ya pasó 1 segundo, si sí, hace la suma 
+	BRNE	MAIN				// Revisa si ya pasó 1 segundo, si sí, hace la suma 
 	CLR		COUNTER2
 	CALL	SUMAR
 	MOV		R24, R19
@@ -128,7 +129,8 @@ COMPARAR:
 	RET
 
 TOGGLE: 
-	SBI		PINC, PC4
+	CALL	RESET_COUNTER2
+	SBI		PINB, PB5
 	RET
 
 // Sub-rutina (no de interrupcion)
