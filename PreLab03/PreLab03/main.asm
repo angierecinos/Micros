@@ -21,7 +21,9 @@
 .org	PCI0addr					// Dirección donde está el bit interrupción
 	JMP	ISR_PCINT0
 
-.org	
+.org	OVF0addr
+	JMP	ISR_TIMER0_OVF
+
 .def	BOTONES = R21				// Guarda el estado de los botones
 
 START: 
@@ -39,18 +41,13 @@ SETUP:
 	// Se configura prescaler principal
 	LDI		R16, (1 << CLKPCE)		// Se selecciona el bit del CLK (bit 7) 
 	STS		CLKPR, R16				// Se habilitar cambio para el prescaler
-	LDI		R16, 0b00000100			// En la tabla se ubica qué bits deben encender
-	STS		CLKPR, R16				// Se configura prescaler a 16 para 1MHz
+	LDI		R16, 0b00000110			// En la tabla se ubica qué bits deben encender
+	STS		CLKPR, R16				// Se configura prescaler a 64 para 1MHz
 
 	LDI		R16, (1<<CS01) | (1<<CS00)
 	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 64
-	LDI		R16, 100					// Indicar desde donde inicia
+	LDI		R16, 217					// Indicar desde donde inicia
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
-	
-	
-	/*/ Habilitar interrupciones con la máscara 
-	LDI		R16, (1 << TOIE0)			// Habilitar interrupciones del bit 0 para el 
-	STS		TIMSK0, R16*/
 
 	//	Configurar PORTB como entrada con pull-up habilitado 
 	//	PORTB como entrada con pull-up habilitado
@@ -77,14 +74,34 @@ SETUP:
 	LDI		R17, 0x00								// Registro para contador
 
 LOOP:  
-     RJMP LOOP
+	 RJMP	LOOP
 
-// Rutina de interrupción
+// Rutina de interrupción para revisar PB
 ISR_PCINT0: 
+	CLI							// Se desactivan las interrupciones para evitar cambios repentinos
+	IN		R18, PINB			// Se lee el pin
+	LDI		R16, 217			// Se indica donde debe iniciar el TIMER
+	OUT		TCNT0, R16
+	LDI		R16, (1 << TOIE0)	// Habilita interrupción por deborde
+	STS		TIMSK0, R16			
+	LDI		R16, 0				// Deshabilitar interrupción
+	STS		PCICR, R16
+	INC		R24
+	CPI		R24, 50
+	BRNE	ISR_PCINT0
+	SEI
+	RETI
+
+// Rutina de interrupción 
+ISR_TIMER0_OVF: 
+	CLI
 	PUSH	R16				// Para no perder el SREG lo mete a la pila
 	IN		R16, SREG		// Copia el valor de SREG 
 	PUSH	R16				// Lo saca
 	
+	LDI		R16, 0 
+	STS		TIMSK0, R16
+
 	// PB0 -> Incrementa | PB1 -> Decrementa	
 	IN		R18, PINB		// Revisa el estado de PINB
 	
@@ -94,9 +111,13 @@ ISR_PCINT0:
 	SBRS	R18, PB1		// Revisa si el bit 1 está set (1 -> no apachado) 
 	CALL	DECREMENTAR1				// Si no está set decrementa (0 -> apachado)  
 
+	LDI		R16, (1 << PCIE0)		// Habilitar interrupciones
+	STS		PCICR, R16
+
 	POP		R16				// Vuelve a meterle el valor anterior del SREG
 	OUT		SREG, R16
 	POP		R16
+	SEI
 	RETI
 
 // Sub-rutinas (no de interrupción) 
