@@ -50,30 +50,20 @@ SETUP:
 	LDI		R16, 0xFF
 	OUT		DDRD, R16			// Setear puerto D como salida (1 -> no recibe)
 	OUT		DDRC, R16
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> PreLaboratorio03
-	SBI		DDRB, PB5
+	SBI		DDRB, PB5			// Para el led que hace toggle
 	
-	LDI		R16, 0x00			// Primer bit encendido (prueba)
+	LDI		R16, 0x00			
 	LDI		R23, 0x00
-	OUT		PORTD, R16			// Encender primer bit del puerto D y C
+	OUT		PORTD, R16
 	OUT		PORTC, R23
-	CBI		PORTB, PB5
-<<<<<<< HEAD
-=======
-	OUT		PORTD, R16			// Leds para display
-	OUT		PORTC, R16			// Leds de contador normal - POST
->>>>>>> PostLab02
-=======
->>>>>>> PreLaboratorio03
-	 
-	LDI		R17, 0xFF			// Variable para guardar el estado de botones
-	LDI		R19, 0x00			// Variable para contador de leds
-	LDI		COUNTER, 0x00		// Variable para contador de leds en Display7
-	LDI		COUNTER2, 0x00		// Counter de desbordes
 	
+	CBI		PORTB, PB5			// Se le carga valor de 0 a PB5
+	
+	LDI		R17, 0xFF			// Guarda el estado de los botones
+	LDI		R19, 0x00
+	LDI		COUNTER, 0x00		// Variable para contador de leds
+	LDI		COUNTER2, 0x00		// Counter de desbordes
+
 	// Inicializar el display
 	CALL	INIT_DIS7
 
@@ -82,26 +72,11 @@ MAIN:
 	// Revisión de botones
 	IN		R16, PINB			// Guardando el estado de PORTB (pb) en R16 0xFF
 	CP		R17, R16			// Comparamos estado viejo con estado nuevo
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> PreLaboratorio03
 	BREQ	TIMER				// Si no hay cambio, salta a TIMER
 	CALL	DELAY				// Si hay cambio, salta a call y hace delay
 	IN		R16, PINB			// Por si ocurre rebote vuelve a leer y a comparar
 	CP		R17, R16
 	BREQ	TIMER				// Si después del delay sigue igual, sigue el contador
-<<<<<<< HEAD
-=======
-	BREQ	MAIN				// Si no hay cambio, salta a MAIN
-	BREQ	C_4BITS
-	CALL	DELAY				// Si hay cambio, salta a call y hace delay
-	IN		R16, PINB			// Por si ocurre rebote vuelve a leer y a comparar
-	CP		R17, R16
-	BREQ	MAIN				// Si después del delay sigue igual, no hace nada
->>>>>>> PostLab02
-=======
->>>>>>> PreLaboratorio03
 	
 	// Volver a leer PINB
 	MOV		R17, R16			// Si fueran diferentes, habría que updatearlos
@@ -112,57 +87,20 @@ MAIN:
 	SBIS	PINB, 1				// Salta si el bit 1 del PINB es 1 (boton no apachado)
 	CALL	DECREMENTAR1		// Si el bit 1 es 0 el boton esta apachado y (-)
 	
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> PreLaboratorio03
 	SBIC	TIFR0, TOV0
 	CALL	TIMER
+
 // ----------------------------- Sub-rutina de contador 4 bits	----------------------------------------
 TIMER:
 	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
 	SBRS	R18, TOV0			// Salta si el bit 0 esta "set" (TOV0 bit en TIFR0 de desborde)
 	RJMP	MAIN
-<<<<<<< HEAD
-=======
-	// Sumar el contador binario de 4 bits
-	IN		R18, TIFR0			// Leer registro de interrupcion de TIMER 0
-	SBRC	R18, TOV0			// Salta si el bit 0 NO esta "set" (TOV0 bit en TIFR0 de desborde)
-	CALL	TIMER				// Si es 1, hubo desborde, tiene que reiniciar 
-	CP		R19, COUNTER		// Compara si el contador de 4 bits es igual al counter del display
-	BREQ	TOGGLE_LED
-	RJMP	MAIN				// Si es 0 el bit, irá a repetir
 
-
-TOGGLE_LED: 
-	CBI		PORTC, 0
-	CBI		PORTC, 1
-	CBI		PORTC, 2
-	CBI		PORTC, 3
-	MOV		PORTC, R23			// Guardo únicamente el estado del bit para el led
-	LDI		R19, 0x00			// Reseteo el contador
-	ADD		R23, R19			// En R23 está solo el estado de PC4, lo sumo con R19 que está en 0	
-	
-	SBRC	R23, 4				// Revisar si led está en 0
-	CBI		R23, 4				// Si no, lo pone en 0
-	SBI		R23, 4
-	OUT		PORTC, R23
-    RJMP	MAIN
-    
-// ----------------------------- Sub-rutina de contador 4 bits	----------------------------------------
-TIMER:
->>>>>>> PostLab02
-=======
->>>>>>> PreLaboratorio03
 	SBI		TIFR0, TOV0			// Apaga bandera de overflow (TOV0) 
 	LDI		R18, 158			// Como se usa TCNT0, se indica inicio
 	OUT		TCNT0, R18			// Volver a cargar valor inicial en TCNT0
 	INC		COUNTER2			// Como la idea es contar que 10 veces se desborde 100 ms = 1 segundo
 	CPI		COUNTER2, 10		// 0.1 * 10 = 1 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> PreLaboratorio03
 	BRNE	MAIN				// Revisa si ya pasó 1 segundo, si sí, hace la suma 
 	CLR		COUNTER2
 	CALL	SUMAR
@@ -170,19 +108,9 @@ TIMER:
 	OUT		PORTC, R24
 	CALL	COMPARAR
 	RJMP	MAIN							// Si no, vuelve al ciclo
-	
-CLR_COUNTER2:	
-	CLR		COUNTER2			// Resetea el counter de reloj a 0
-<<<<<<< HEAD
-=======
-	BREQ	CLR_COUNTER2		// Revisa si ya pasó 1 segundo, si sí, hace la suma 
-	RET							// Si no, vuelve al ciclo
-	
+
 CLR_COUNTER2:	
 	CLR		COUNTER2			// Resetea el counter a 0
->>>>>>> PostLab02
-=======
->>>>>>> PreLaboratorio03
 	CALL	SUMAR				// Llama a que sume el contador 1 bit
 	RET 
 
@@ -197,10 +125,6 @@ RESET_COUNTER2:
     LDI		R19, 0x00					// Resetea el contador a 0
 	OUT		PORTC, R19
 	RET
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> PreLaboratorio03
 
 COMPARAR: 
 	CP		R19, COUNTER
@@ -211,11 +135,6 @@ TOGGLE:
 	CALL	RESET_COUNTER2
 	SBI		PINB, PB5
 	RET
-<<<<<<< HEAD
-=======
->>>>>>> PostLab02
-=======
->>>>>>> PreLaboratorio03
 
 // Sub-rutina (no de interrupcion)
 // Delay

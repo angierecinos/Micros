@@ -35,7 +35,7 @@ SETUP:
 	// Deshabilitar interrupciones globales
 	CLI	
 	
-	// Utilizando oscilador a 1 MHz
+	// Utilizando oscilador a 250 kHz
 	// Se configura prescaler principal
 	LDI		R16, (1 << CLKPCE)		// Se selecciona el bit del CLK (bit 7) 
 	STS		CLKPR, R16				// Se habilitar cambio para el prescaler
