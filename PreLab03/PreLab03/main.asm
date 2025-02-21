@@ -69,6 +69,9 @@ SETUP:
 													// Da "permiso" "habilita"
 	SEI												// Se habilitan interrupciones globales
 
+	// Inicializar el display
+	//CALL	INIT_DIS7
+
 	LDI		R17, 0x00								// Registro para contador
 
 // Loop vacío
@@ -102,13 +105,13 @@ ISR_TIMER0_OVF:
 	STS		TIMSK0, R16			// Evito que el timer genere otras interrupciones
 
 	// PB0 -> Incrementa | PB1 -> Decrementa	
-	IN		R18, PINB			// Revisa el estado de PINB
+	/*IN		R18, PINB			// Revisa el estado de PINB
 	
 	SBRS	R18, PB0			// Si el bit 0 está set salta (por pull-up 1 -> suelto) 
 	CALL	INCREMENTAR1		// Si no está set incrementa (0 -> apachado) 
 
 	SBRS	R18, PB1			// Revisa si el bit 1 está set (1 -> no apachado) 
-	CALL	DECREMENTAR1		// Si no está set decrementa (0 -> apachado)  
+	CALL	DECREMENTAR1		// Si no está set decrementa (0 -> apachado)  */
 
 	LDI		R16, (1 << PCIE0)	// Habilitar interrupciones PIN-CHANGE
 	STS		PCICR, R16			// Ya que se revisó la interrupción se revisan otras
