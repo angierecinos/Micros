@@ -64,7 +64,7 @@ SETUP:
 	OUT		PORTD, R16
 	OUT		PORTC, R23
 	LDI		R16, (1 << PB0) | (1 << PB1)
-	OUT		PORTB, R16  ; Habilitar pull-ups en PB0 y PB1
+	OUT		PORTB, R16			// Habilitar pull-ups en PB0 y PB1
 
 // Configuración de interrupción para botones
 	LDI		R16, (1 << PCINT0) | (1 << PCINT1)		// Se seleccionan los bits de la máscara (2)
@@ -111,7 +111,7 @@ ISR_PCINT0:
 	SBRS	R16, TOV0
 	RJMP	ISR_PCINT0			// Si no ha desbordado, sigue en el ciclo
 	SBI		TIFR0, TOV0			// Si la bandera de overflow esta encendida, la apaga
-	LDI		R16, 100			// Se indica donde debe iniciar el TIMER
+	LDI		R16, 217			// Se indica donde debe iniciar el TIMER
 	OUT		TCNT0, R16	
 
 	IN		R18, PINB			// Se lee el pin
@@ -132,7 +132,7 @@ ISR_PCINT0:
 	RETI
 
 NO_CAMBIO: 
-	RETI						// Lo regresa al ciclo main
+	RETI						// Lo regresa al loop
 
 //--------------------------------INCREMENTA DISPLAY------------------------------------
 // Rutina de no interrupción 
@@ -185,6 +185,6 @@ RESET_COUNTER1:
 	RETI
 
 RESET_COUNTER2:
-    LDI		R17, 0x09			// Resetea el contador a 0
+    LDI		R17, 0x0F			// Resetea el contador a 0
 	OUT		PORTC, R17
 	RETI
