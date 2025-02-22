@@ -89,9 +89,9 @@ LOOP:
 
 // Rutina de interrupción 
 ISR_TIMER0_OVF: 
-	PUSH	R16					// Para no perder el SREG lo mete a la pila
+	/*PUSH	R16					// Para no perder el SREG lo mete a la pila
 	IN		R16, SREG			// Copia el valor de SREG 
-	PUSH	R16					// Lo saca
+	PUSH	R16		*/			// Lo saca
 	
 	SBI		TIFR0, TOV0
 	LDI		R16, 100			// Se indica donde debe iniciar el TIMER
@@ -100,19 +100,19 @@ ISR_TIMER0_OVF:
 	CPI		R24, 100			// Si ocurre 100 veces, ya pasó el tiempo para modificar contador
 	BREQ	CONTADOR
 
-	POP		R16					// Vuelve a meterle el valor anterior del SREG
+	/*POP		R16					// Vuelve a meterle el valor anterior del SREG
 	OUT		SREG, R16
-	POP		R16
+	POP		R16*/
 	RETI
 
 // Rutina de interrupción para revisar PB
 ISR_PCINT0: 
-	IN		R16, TIFR0			// Se hace un antirrebote con el timer
-	SBRS	R16, TOV0
-	RJMP	ISR_PCINT0			// Si no ha desbordado, sigue en el ciclo
-	SBI		TIFR0, TOV0			// Si la bandera de overflow esta encendida, la apaga
-	LDI		R16, 217			// Se indica donde debe iniciar el TIMER
-	OUT		TCNT0, R16	
+	//IN		R16, TIFR0			// Se hace un antirrebote con el timer
+	//SBRS	R16, TOV0
+	//RJMP	ISR_PCINT0			// Si no ha desbordado, sigue en el ciclo
+	//SBI		TIFR0, TOV0			// Si la bandera de overflow esta encendida, la apaga
+	//LDI		R16, 217			// Se indica donde debe iniciar el TIMER
+	//OUT		TCNT0, R16	
 
 	IN		R18, PINB			// Se lee el pin
 	CP		R18, R20			// Se compara estado de los botones
@@ -144,15 +144,17 @@ CONTADOR:
 	LPM		R16, Z		
 	OUT		PORTD, R16
 	LDI		R24, 0x00
-	POP		R16					// Vuelve a meterle el valor anterior del SREG
+	/*POP		R16					// Vuelve a meterle el valor anterior del SREG
 	OUT		SREG, R16
-	POP		R16
+	POP		R16*/
 	RETI		
 
 RESET_DISP2:
-    LDI		R19, 0x00			// Resetea el contador a 0
+    CLI
+	LDI		R19, 0x00			// Resetea el contador a 0
 	LDI		R24, 0x00
 	CALL	INIT_DIS7			// Reasigna la tabla al 0
+	SEI
 	RETI
 
 // ------------------------------- Se inicia el display ---------------------------------------------
@@ -173,9 +175,9 @@ INCREMENTAR1:
 	RETI							// Vuelve al ciclo main a repetir
 
 DECREMENTAR1: 
+	DEC		R17					// R19 decrementará
 	CPI		R17, 0xFF			// Si el contador llega a 0, reiniciar el contador
 	BREQ	RESET_COUNTER2		// Si es igual a 0 no hace nada y vuelve a main
-	DEC		R17					// R19 decrementará
 	OUT		PORTC, R17			// Muestra en el PORTD el cambio de contador
 	RETI							// Regresa a main si ya decremento
 
@@ -183,7 +185,7 @@ RESET_COUNTER1:
     LDI		R17, 0x00			// Resetea el contador a 0
 	OUT		PORTC, R17
 	RETI
-
+	
 RESET_COUNTER2:
     LDI		R17, 0x0F			// Resetea el contador a 0
 	OUT		PORTC, R17
