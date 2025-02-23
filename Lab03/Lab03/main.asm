@@ -81,16 +81,19 @@ SETUP:
 		  //R16 - MULTIUSOS GENERAL 
 	LDI		R17, 0x00								// Registro para contador de 4 bits
 		  //R18 - COMPARA BOTONES
-	LDI		R19, 0x00								// Registro para contador de display
+	LDI		R19, 0x00								// Registro para contador de unidades display
 	LDI		R20, 0xFF								// Guarda el estado de botones
+	LDI		R21, 0x00								// Registro para cargar el valor de Z
+	LDI		R22, 0x00								// Registro para contador de decenas
 		  //R23 - USO GENERAL
 	LDI		R24, 0x00								// Registro para contador de desbordamientos
-
+	LDI		R25, 0x00								// Registro para estados de transistores
 	SEI												// Se habilitan interrupciones globales
 
 // Loop vacío
 LOOP:  
-	 RJMP	LOOP
+	RJMP	MOSTRAR_DISPLAYS
+	RJMP	LOOP
 
 //------------------------------------------ Rutina de interrupción del timer -----------------------------------------
 ISR_TIMER0_OVF: 
@@ -113,32 +116,85 @@ ISR_TIMER0_OVF:
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
 // Rutina de no interrupción 
 CONTADOR: 
-	ADIW	Z, 1					// Compara el valor del contador 
-	INC		R19						// Se aumenta un contador
-	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
-    BREQ	RESET_DISP2				// Si al comparar no es igual, salta a mostrarlo
-	LPM		R16, Z		
-	OUT		PORTD, R16
-	LDI		R24, 0x00
+	LDI		R24, 0x00				// Resetear contador de desbordes de timer
+	ADIW	Z, 1					// Mueve el puntero
+	RJMP	YA_ACTUALICE			// Va a revisar
+	RETI
+
+YA_ACTUALICE:
+	LPM		R21, Z
+	CPI		R19, 0x0A				// Se compara para ver si ya sumó a 10
+	BREQ	YA_DEC					// Si no está en 10, sigue aumentando
+	INC		R19						// Se aumenta el contador de display uni
+	RETI							// Regresa al inicio
+
+YA_DEC:
+	// Si ya estába en 9, resetea el contador de unidades y aumenta decenas
+	LDI		R19, 0x00				// Resetear unidades
+	CALL	INIT_DIS7				// Llamar set de display
+	LPM		R21, Z					// Cargar el valor de 0 en el display
+	INC		R22						// Aumentar el valor del contador de decenas
+	CPI		R22, 0x06				// Comparamos si ya es 6
+	BREQ	TOPAMOS					// Si no es 6, sigue para actualizar
+	RJMP	DECENAS					// Va a actualizar decenas
+
+DECENAS: 
+	ADIW	Z, 1					// Mueve el puntero
+	LPM		R21, Z					// Carga el valor de z en el registro
+	RETI
+
+TOPAMOS:
+	LDI		R22, 0x00
+	CALL	INIT_DIS7
+	RETI
+
+MOSTRAR_DISPLAYS:
+	// Mostrar unidades
+	IN		R25
+	SBIS	R25, 
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	LPM		R21, Z
+
+	ADD		ZL, R19	
+	LPM		R21, Z
+	OUT		PORTD, R21
+	SBI		PORTB, PB2          ; Encender display de unidades
+    CBI		PORTB, PB3          ; Apagar display de decenas
+
+	LDI    ZL, LOW(TABLITA<<1)
+    LDI    ZH, HIGH(TABLITA<<1)
+    ADD    ZL, R22
+    LPM    R16, Z
+    OUT    PORTD, R16          ; Mostrar decenas en PORTD
+    SBI    PORTB, PB3          ; Encender display de decenas
+    CBI    PORTB, PB2          ; Apagar display de unidades
+	
+	/*ADIW	Z, 1					// Compara el valor del contador 
+	
+    BREQ	AUMENTAR_DEC				// Si al comparar no es igual, salta a mostrarlo
+
+	LPM		R21, Z		
+	OUT		PORTD, R21*/
+	
 	/*POP		R16					// Vuelve a meterle el valor anterior del SREG
 	OUT		SREG, R16
 	POP		R16*/
 	RETI		
 
-RESET_DISP2:
-    CLI
+AUMENTAR_DEC:
+	INC		R22
 	LDI		R19, 0x00				// Resetea el contador a 0
 	LDI		R24, 0x00
 	CALL	INIT_DIS7				// Reasigna la tabla al 0
-	SEI
 	RETI
 
 // -------------------------------------------- Se inicia el display ---------------------------------------------------
 INIT_DIS7:
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	LPM		R16, Z
-	OUT		PORTD, R16
+	LPM		R21, Z
+	OUT		PORTD, R21
 	RET
 
 // --------------------------------------Rutina de interrupción para revisar PB ----------------------------------------
