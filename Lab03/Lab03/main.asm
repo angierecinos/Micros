@@ -66,6 +66,10 @@ SETUP:
 	LDI		R16, (1 << PB0) | (1 << PB1)
 	OUT		PORTB, R16					// Habilitar pull-ups en PB0 y PB1
 
+	// Configurar PB2 y PB3 como salidas para controlar los transistores
+    LDI    R16, (1 << PB2) | (1 << PB3)
+    OUT    DDRB, R16
+
 	// ------------------------------------Configuración de interrupción para botones----------------------------------
 	LDI		R16, (1 << PCINT0) | (1 << PCINT1)		// Se seleccionan los bits de la máscara (2)
 	STS		PCMSK0, R16								// Bits habilitados (PB0 y PB1) por máscara		
@@ -90,27 +94,35 @@ SETUP:
 	LDI		R25, 0x00								// Registro para estados de transistores
 	SEI												// Se habilitan interrupciones globales
 
-// Loop vacío
+// Loop principal
 LOOP:  
-	RJMP	MOSTRAR_DISPLAYS
+	SBRS	R24, 0
+	RJMP	DISPLAY1
+	
+	// Mostrar decenas
+	CBI		PORTB, PB2
+	LDI		R21, 0x00
+	OUT		PORTD, R21
+	SBI		PORTB, PB3
+	OUT		PORTD, R26
+	RJMP	LOOP
+
+DISPLAY1:
+	CBI		PORTB, PB3
+	LDI		R21, 0x00
+	OUT		PORTD, R21
+	SBI		PORTB, PB2
+	OUT		PORTD, R25
 	RJMP	LOOP
 
 //------------------------------------------ Rutina de interrupción del timer -----------------------------------------
-ISR_TIMER0_OVF: 
-	/*PUSH	R16					// Para no perder el SREG lo mete a la pila
-	IN		R16, SREG			// Copia el valor de SREG 
-	PUSH	R16		*/			// Lo saca
-	
+ISR_TIMER0_OVF: 	
 	SBI		TIFR0, TOV0
 	LDI		R16, 100			// Se indica donde debe iniciar el TIMER
 	OUT		TCNT0, R16				
 	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
 	CPI		R24, 100			// Si ocurre 100 veces, ya pasó el tiempo para modificar contador
 	BREQ	CONTADOR
-
-	/*POP		R16				// Vuelve a meterle el valor anterior del SREG
-	OUT		SREG, R16
-	POP		R16*/
 	RETI
 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
@@ -122,72 +134,44 @@ CONTADOR:
 	RETI
 
 YA_ACTUALICE:
-	LPM		R21, Z
+	INC		R19						// Se aumenta el contador de display uni
 	CPI		R19, 0x0A				// Se compara para ver si ya sumó a 10
 	BREQ	YA_DEC					// Si no está en 10, sigue aumentando
-	INC		R19						// Se aumenta el contador de display uni
+	
+	LPM		R25, Z
 	RETI							// Regresa al inicio
 
 YA_DEC:
 	// Si ya estába en 9, resetea el contador de unidades y aumenta decenas
 	LDI		R19, 0x00				// Resetear unidades
-	CALL	INIT_DIS7				// Llamar set de display
-	LPM		R21, Z					// Cargar el valor de 0 en el display
+	//CALL	INIT_DIS7				// Llamar set de display
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	LPM		R22, Z
+	ADD		ZL, R22
+			
+	LPM		R26, Z					// Cargar el valor de 0 en el display
 	INC		R22						// Aumentar el valor del contador de decenas
 	CPI		R22, 0x06				// Comparamos si ya es 6
 	BREQ	TOPAMOS					// Si no es 6, sigue para actualizar
 	RJMP	DECENAS					// Va a actualizar decenas
 
 DECENAS: 
+	/*CALL	INIT_DIS7
 	ADIW	Z, 1					// Mueve el puntero
-	LPM		R21, Z					// Carga el valor de z en el registro
+	LPM		R26, Z					// Carga el valor de z en el registro
+	RET¨*/
+	LDI  ZL, LOW(TABLITA<<1)
+	LDI  ZH, HIGH(TABLITA<<1)
+	ADD  ZL, R22 	// Posiciona Z en la tabla según las decenas
+	LPM  R26, Z 	// Carga el valor de la tabla en R26 (decenas)
 	RETI
 
 TOPAMOS:
+	LDI		R19, 0x00
 	LDI		R22, 0x00
 	CALL	INIT_DIS7
-	RETI
-
-MOSTRAR_DISPLAYS:
-	// Mostrar unidades
-	IN		R25
-	SBIS	R25, 
-	LDI		ZL, LOW(TABLITA<<1)
-	LDI		ZH, HIGH(TABLITA<<1)
-	LPM		R21, Z
-
-	ADD		ZL, R19	
-	LPM		R21, Z
-	OUT		PORTD, R21
-	SBI		PORTB, PB2          ; Encender display de unidades
-    CBI		PORTB, PB3          ; Apagar display de decenas
-
-	LDI    ZL, LOW(TABLITA<<1)
-    LDI    ZH, HIGH(TABLITA<<1)
-    ADD    ZL, R22
-    LPM    R16, Z
-    OUT    PORTD, R16          ; Mostrar decenas en PORTD
-    SBI    PORTB, PB3          ; Encender display de decenas
-    CBI    PORTB, PB2          ; Apagar display de unidades
-	
-	/*ADIW	Z, 1					// Compara el valor del contador 
-	
-    BREQ	AUMENTAR_DEC				// Si al comparar no es igual, salta a mostrarlo
-
-	LPM		R21, Z		
-	OUT		PORTD, R21*/
-	
-	/*POP		R16					// Vuelve a meterle el valor anterior del SREG
-	OUT		SREG, R16
-	POP		R16*/
 	RETI		
-
-AUMENTAR_DEC:
-	INC		R22
-	LDI		R19, 0x00				// Resetea el contador a 0
-	LDI		R24, 0x00
-	CALL	INIT_DIS7				// Reasigna la tabla al 0
-	RETI
 
 // -------------------------------------------- Se inicia el display ---------------------------------------------------
 INIT_DIS7:
