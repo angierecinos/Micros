@@ -91,7 +91,6 @@ SETUP:
 	LDI		R22, 0x00								// Registro para contador de decenas
 		  //R23 - USO GENERAL
 	LDI		R24, 0x00								// Registro para contador de desbordamientos
-	LDI		R25, 0x00								// Registro para estados de transistores
 	SEI												// Se habilitan interrupciones globales
 
 // Loop principal
@@ -100,19 +99,25 @@ LOOP:
 	RJMP	DISPLAY1
 	
 	// Mostrar decenas
-	CBI		PORTB, PB2
-	LDI		R21, 0x00
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	ADD		ZL, R22					// Guardar el valor de Z en el contador de decnas
+	LPM		R21, Z					// Se guarda el valor de Z		
 	OUT		PORTD, R21
-	SBI		PORTB, PB3
-	OUT		PORTD, R26
+	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
+	SBI		PORTB, PB3				// Habilitar transistor 2
 	RJMP	LOOP
 
 DISPLAY1:
-	CBI		PORTB, PB3
-	LDI		R21, 0x00
+	// Mostrar unidades
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	ADD		ZL, R19					// Cargar el valor de Z en el contador de unidades
+
+	LPM		R21, Z					// Guardar el valor de Z
 	OUT		PORTD, R21
-	SBI		PORTB, PB2
-	OUT		PORTD, R25
+	CBI		PORTB, PB3				// Se deshabilita transistor para PB3
+	SBI		PORTB, PB2				// Habilitar transistor 1
 	RJMP	LOOP
 
 //------------------------------------------ Rutina de interrupción del timer -----------------------------------------
@@ -122,54 +127,35 @@ ISR_TIMER0_OVF:
 	OUT		TCNT0, R16				
 	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
 	CPI		R24, 100			// Si ocurre 100 veces, ya pasó el tiempo para modificar contador
-	BREQ	CONTADOR
+	BREQ	CONTADOR	
 	RETI
 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
 // Rutina de no interrupción 
 CONTADOR: 
-	LDI		R24, 0x00				// Resetear contador de desbordes de timer
-	ADIW	Z, 1					// Mueve el puntero
-	RJMP	YA_ACTUALICE			// Va a revisar
+	//ADIW	Z, 1					// Compara el valor del contador 
+	INC		R19						// Se aumenta un contador
+	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
+    BREQ	RESET_DISP1				// Si al comparar no es igual, salta a mostrarlo
+	LPM		R21, Z		
+	//OUT		PORTD, R16
+	LDI		R24, 0x00				// Reiniciar contador de desbordamientos de timer
 	RETI
 
-YA_ACTUALICE:
-	INC		R19						// Se aumenta el contador de display uni
-	CPI		R19, 0x0A				// Se compara para ver si ya sumó a 10
-	BREQ	YA_DEC					// Si no está en 10, sigue aumentando
-	
-	LPM		R25, Z
-	RETI							// Regresa al inicio
-
-YA_DEC:
-	// Si ya estába en 9, resetea el contador de unidades y aumenta decenas
-	LDI		R19, 0x00				// Resetear unidades
-	//CALL	INIT_DIS7				// Llamar set de display
-	LDI		ZL, LOW(TABLITA<<1)
-	LDI		ZH, HIGH(TABLITA<<1)
-	LPM		R22, Z
-	ADD		ZL, R22
-			
-	LPM		R26, Z					// Cargar el valor de 0 en el display
-	INC		R22						// Aumentar el valor del contador de decenas
+RESET_DISP1:
+    //CLI
+	LDI		R19, 0x00				// Resetea el contador a 0
+	INC		R22						// Incrementamos el contador de decenas
 	CPI		R22, 0x06				// Comparamos si ya es 6
+	LDI		R24, 0x00
 	BREQ	TOPAMOS					// Si no es 6, sigue para actualizar
-	RJMP	DECENAS					// Va a actualizar decenas
-
-DECENAS: 
-	/*CALL	INIT_DIS7
-	ADIW	Z, 1					// Mueve el puntero
-	LPM		R26, Z					// Carga el valor de z en el registro
-	RET¨*/
-	LDI  ZL, LOW(TABLITA<<1)
-	LDI  ZH, HIGH(TABLITA<<1)
-	ADD  ZL, R22 	// Posiciona Z en la tabla según las decenas
-	LPM  R26, Z 	// Carga el valor de la tabla en R26 (decenas)
+	//SEI
 	RETI
 
 TOPAMOS:
 	LDI		R19, 0x00
 	LDI		R22, 0x00
+	LDI		R24, 0x00
 	CALL	INIT_DIS7
 	RETI		
 
