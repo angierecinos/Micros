@@ -14,16 +14,20 @@
 // -------------------------------- Encabezado ------------------------------- //
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
+.equ	VALOR_T1 = 0x1B1E
 .cseg								// Codigo en la flash
 
 .org	0x0000							// Donde inicia el programa
 	JMP	START							// Tiene que saltar para no ejecutar otros
 
-.org	PCI0addr						// Dirección donde está el vector interrupción
+.org	PCI0addr						// Dirección donde está el vector interrupción PORTB
 	JMP	ISR_PCINT0
 
-.org	OVF0addr						// Dirección del vector
-	JMP	ISR_TIMER0_OVF
+.org	OVF0addr						// Dirección del vector para timer0
+	JMP	ISR_TIMER0_OVF:
+
+.org	OVF1addr						// Dirección del vector para timer1
+	JMP	ISR_TIMER1_OVF:
 
 START: 
 	// Configurar el SP en 0x03FF (al final de la SRAM) 
@@ -39,23 +43,45 @@ SETUP:
 
 	// Deshabilitar interrupciones globales
 	CLI	
-	
-	// Utilizando oscilador a 1MHz
+// ------------------------------------Configuración del TIMER0----------------------------------
+	// Utilizando oscilador a 1MHz - Permitirá parpadeo cada 500 ms
 	// Se configura prescaler principal
 	LDI		R16, (1 << CLKPCE)			// Se selecciona el bit del CLK (bit 7) 
 	STS		CLKPR, R16					// Se habilitar cambio para el prescaler
 	LDI		R16, 0b00000100				// En la tabla se ubica qué bits deben encender
 	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz
 
-	LDI		R16, (1<<CS01) | (1<<CS00)
-	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 64
-	LDI		R16, 100					// Indicar desde donde inicia -> desborde cada 10 ms
+	LDI		R16, (1<<CS02) | (1<<CS00)
+	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
+	LDI		R16, 158					// Indicar desde donde inicia -> desborde cada 100 ms
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
 	
 	LDI		R16, (1 << TOIE0)			// Habilita interrupción por desborde del TIMER0
 	STS		TIMSK0, R16										
 
-	//	PORTD como salida inicialmente encendido
+// ------------------------------------Configuración del TIMER1----------------------------------
+	// Utilizando oscilador a 1MHz - Permitirá usar el contador cada minuto
+	// Se configura prescaler principal
+	LDI		R16, (1 << CLKPCE)			// Se selecciona el bit del CLK (bit 7) 
+	STS		CLKPR, R16					// Se habilitar cambio para el prescaler
+	LDI		R16, 0b00000100				// En la tabla se ubica qué bits deben encender
+	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz
+
+	LDI		R16, (1<<CS12) | (1<<CS10)	// Se configura prescaler de 1024
+	OUT		TCCR1B, R16					// Setear prescaler del TIMER 0 a 1024
+
+// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
+	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16
+
+// Habilitar interrupción por desborde del TIMER1
+	LDI		R16, (1 << TOIE1)			; Habilita interrupción por desborde del TIMER1
+	STS		TIMSK1, R16					
+
+// ------------------------------------Configuración de los puertos----------------------------------
+	//	PORTD y PORTC como salida 
 	LDI		R16, 0xFF
 	OUT		DDRD, R16					// Setear puerto D como salida (1 -> no recibe)
 	OUT		DDRC, R16					// Setear puerto C como salida 
@@ -64,16 +90,16 @@ SETUP:
 	LDI		R23, 0x00
 	OUT		PORTD, R16
 	OUT		PORTC, R23
-	LDI		R16, (1 << PB0) | (1 << PB1)
+	LDI		R16, (1 << PB0) | (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4)
 	OUT		PORTB, R16					// Habilitar pull-ups en PB0 y PB1
 
 	// Configurar PC0, PC1, PC2 y PC3 como salidas para controlar los transistores
-    LDI    R16, (1 << PC0) | (1 << PC1) | (1 << PC2) | (1 << PC3)
-    OUT    DDRC, R16
+    LDI		R16, (1 << PC0) | (1 << PC1) | (1 << PC2) | (1 << PC3)
+    OUT		DDRC, R16
 
 	// ------------------------------------Configuración de interrupción para botones----------------------------------
-	LDI		R16, (1 << PCINT0) | (1 << PCINT1)		// Se seleccionan los bits de la máscara (2)
-	STS		PCMSK0, R16								// Bits habilitados (PB0 y PB1) por máscara		
+	LDI		R16, (1 << PCINT0) | (1 << PCINT1) | (1 << PCINT2) | (1 << PCINT3)	| (1 << PCINT4)	// Se seleccionan los bits de la máscara (2)
+	STS		PCMSK0, R16								// Bits habilitados (PB0, PB1, PB2, PB3, PB4 y PB5) por máscara		
 
 	LDI		R16, (1 << PCIE0)						// Habilita las interrupciones Pin-Change en PORTB
 	STS		PCICR, R16								// "Avisa" al registros PCICR que se habilitan en PORTB
@@ -127,11 +153,24 @@ DISPLAY1:
 //------------------------------------------ Rutina de interrupción del timer -----------------------------------------
 ISR_TIMER0_OVF: 	
 	SBI		TIFR0, TOV0
-	LDI		R16, 100			// Se indica donde debe iniciar el TIMER
+	LDI		R16, 158			// Se indica donde debe iniciar el TIMER
 	OUT		TCNT0, R16				
 	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
-	CPI		R24, 100			// Si ocurre 100 veces, ya pasó el tiempo para modificar contador
-	BREQ	CONTADOR	
+	CPI		R24, 5				// Si ocurre 5 veces, ya pasó el tiempo para modificar los leds
+	BREQ	TOGGLE	
+	RETI
+
+TOGGLE: 
+	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
+	RETI
+
+//------------------------------------------ Rutina de interrupción del timer -----------------------------------------
+ISR_TIMER1_OVF: 	
+	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16			
+	RJMP	CONTADOR	
 	RETI
 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
@@ -173,12 +212,6 @@ INIT_DIS7:
 
 // --------------------------------------Rutina de interrupción para revisar PB ----------------------------------------
 ISR_PCINT0: 
-	//IN		R16, TIFR0			// Se hace un antirrebote con el timer
-	//SBRS	R16, TOV0
-	//RJMP	ISR_PCINT0				// Si no ha desbordado, sigue en el ciclo
-	//SBI		TIFR0, TOV0			// Si la bandera de overflow esta encendida, la apaga
-	//LDI		R16, 217			// Se indica donde debe iniciar el TIMER
-	//OUT		TCNT0, R16	
 
 	IN		R18, PINB				// Se lee el pin
 	CP		R18, R20				// Se compara estado de los botones
