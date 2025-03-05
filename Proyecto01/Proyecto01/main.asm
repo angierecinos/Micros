@@ -29,8 +29,11 @@
 
 .org	OVF1addr						// Dirección del vector para timer1
 	JMP	TIMER1_OVERFLOW
+
+//TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
 	
 START: 
+
 	// Configurar el SP en 0x03FF (al final de la SRAM) 
 	LDI		R16, LOW(RAMEND)			// Carga los bits bajos (0x0FF)
 	OUT		SPL, R16					// Configura spl = 0xFF -> r16
@@ -38,10 +41,10 @@ START:
 	OUT		SPH, R16					// Configura sph = 0x03) -> r16
 
 	// Display 7 Seg
-	.org 0x100  ; Coloca la tabla en una dirección más alta de memoria
+	.org 0x100  // Coloca la tabla en una dirección más alta de memoria
 	TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
 
-SETUP:
+//SETUP:
 
 	// Deshabilitar interrupciones globales
 	CLI	
@@ -176,13 +179,13 @@ CONTADOR:
 	//ADIW	Z, 1					// Compara el valor del contador 
 	INC		R19						// Se aumenta el contador de unidades de minutos
 	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
-    BREQ	RESET_DISP1				// Si al comparar no es igual, salta a mostrarlo
+    BREQ	DECENAS					// Si al comparar no es igual, salta a mostrarlo
 	LPM		R21, Z		
 	//OUT		PORTD, R16
 	//LDI		R24, 0x00				// Reiniciar contador de desbordamientos de timer
 	RETI
 
-RESET_DISP1:
+DECENAS:
     //CLI
 	LDI		R19, 0x00				// Resetea el contador a 0
 	INC		R22						// Incrementamos el contador de decenas de minutos
@@ -193,19 +196,30 @@ RESET_DISP1:
 	RETI
 
 HORAS:
-	LDI		R19, 0x00				// Resetea el contador de unidades de minutos
+	//LDI		R19, 0x00				// Resetea el contador de unidades de minutos
 	LDI		R22, 0x00				// Resetea el contador de decenas de minutos
 	INC		R23						// Incrementa el contador de unidades de horas
-	CPI		R23, 0x04				// Compara para lograr formato de 24 horas
+	CPI		R23, 0x0A				// Compara para lograr formato de 24 horas
 	BREQ	FORMATO_24
-
-	//LDI		R24, 0x00
-	CALL	INIT_DIS7
 	RETI		
 
 FORMATO_24: 
-	CPI		R25, 0x02
-	BREQ	
+	LDI		R23, 0x00				// Resetea el contador de unidades de hora
+	INC		R25						// Incrementa contador de decenas de hora
+	CPI		R25, 0x02				// Compara valor de decenas
+	BRNE	NO_TOPAMOS	
+	CPI		R23, 0x04				// Verifica el formato de 24 horas
+	BRNE	NO_TOPAMOS				// Si ya son las 24, entonces reinicia todos los contadores
+	LDI		R19, 0x00
+	LDI		R22, 0x00
+	LDI		R23, 0x00
+	LDI		R25, 0x00
+	CALL	INIT_DIS7
+	RETI
+
+NO_TOPAMOS: 
+	RETI
+
 // -------------------------------------------- Se inicia el TIMER1 ---------------------------------------------------
 INIT_TMR1:
 	// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
