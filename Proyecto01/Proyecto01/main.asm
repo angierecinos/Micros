@@ -15,6 +15,7 @@
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
 .equ	VALOR_T1 = 0x1B1E
+
 .cseg								// Codigo en la flash
 
 .org	0x0000							// Donde inicia el programa
@@ -24,11 +25,11 @@
 	JMP	ISR_PCINT0
 
 .org	OVF0addr						// Dirección del vector para timer0
-	JMP	ISR_TIMER0_OVF:
+	JMP	TIMER0_OVF
 
 .org	OVF1addr						// Dirección del vector para timer1
-	JMP	ISR_TIMER1_OVF:
-
+	JMP	TIMER1_OVERFLOW
+	
 START: 
 	// Configurar el SP en 0x03FF (al final de la SRAM) 
 	LDI		R16, LOW(RAMEND)			// Carga los bits bajos (0x0FF)
@@ -36,7 +37,8 @@ START:
 	LDI		R16, HIGH(RAMEND)			// Carga los bits altos (0x03)
 	OUT		SPH, R16					// Configura sph = 0x03) -> r16
 
-// Display 7 Seg
+	// Display 7 Seg
+	.org 0x100  ; Coloca la tabla en una dirección más alta de memoria
 	TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
 
 SETUP:
@@ -50,77 +52,71 @@ SETUP:
 	STS		CLKPR, R16					// Se habilitar cambio para el prescaler
 	LDI		R16, 0b00000100				// En la tabla se ubica qué bits deben encender
 	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz
-
-	LDI		R16, (1<<CS02) | (1<<CS00)
-	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
-	LDI		R16, 158					// Indicar desde donde inicia -> desborde cada 100 ms
-	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
 	
+	CALL	INIT_TMR0
+
 	LDI		R16, (1 << TOIE0)			// Habilita interrupción por desborde del TIMER0
 	STS		TIMSK0, R16										
-
+	
 // ------------------------------------Configuración del TIMER1----------------------------------
 	// Utilizando oscilador a 1MHz - Permitirá usar el contador cada minuto
 	// Se configura prescaler principal
-	LDI		R16, (1 << CLKPCE)			// Se selecciona el bit del CLK (bit 7) 
+	/*LDI		R16, (1 << CLKPCE)			// Se selecciona el bit del CLK (bit 7) 
 	STS		CLKPR, R16					// Se habilitar cambio para el prescaler
 	LDI		R16, 0b00000100				// En la tabla se ubica qué bits deben encender
-	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz
+	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz*/
 
-	LDI		R16, (1<<CS12) | (1<<CS10)	// Se configura prescaler de 1024
-	OUT		TCCR1B, R16					// Setear prescaler del TIMER 0 a 1024
-
-// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
-	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
-	STS		TCNT1L, R16
-	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
-	STS		TCNT1H, R16
+	CALL	INIT_TMR1
 
 // Habilitar interrupción por desborde del TIMER1
-	LDI		R16, (1 << TOIE1)			; Habilita interrupción por desborde del TIMER1
+	LDI		R16, (1 << TOIE1)			// Habilita interrupción por desborde del TIMER1
 	STS		TIMSK1, R16					
 
 // ------------------------------------Configuración de los puertos----------------------------------
-	//	PORTD y PORTC como salida 
+	//	PORTD, PORTC y PB5 como salida 
 	LDI		R16, 0xFF
 	OUT		DDRD, R16					// Setear puerto D como salida (1 -> no recibe)
 	OUT		DDRC, R16					// Setear puerto C como salida 
+	SBI		DDRB, PB5					// Para el led que hace toggle
 	
 	LDI		R16, 0x00			
 	LDI		R23, 0x00
 	OUT		PORTD, R16
 	OUT		PORTC, R23
+	CBI		PORTB, PB5					// Se le carga valor de 0 a PB5
+	
+	// Configurar PB como entradas con pull ups habilitados
 	LDI		R16, (1 << PB0) | (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4)
-	OUT		PORTB, R16					// Habilitar pull-ups en PB0 y PB1
+	OUT		PORTB, R16					// Habilitar pull-ups 
 
 	// Configurar PC0, PC1, PC2 y PC3 como salidas para controlar los transistores
     LDI		R16, (1 << PC0) | (1 << PC1) | (1 << PC2) | (1 << PC3)
     OUT		DDRC, R16
 
-	// ------------------------------------Configuración de interrupción para botones----------------------------------
-	LDI		R16, (1 << PCINT0) | (1 << PCINT1) | (1 << PCINT2) | (1 << PCINT3)	| (1 << PCINT4)	// Se seleccionan los bits de la máscara (2)
-	STS		PCMSK0, R16								// Bits habilitados (PB0, PB1, PB2, PB3, PB4 y PB5) por máscara		
+// ------------------------------------Configuración de interrupción para botones----------------------------------
+	LDI		R16, (1 << PCINT0) | (1 << PCINT1) | (1 << PCINT2) | (1 << PCINT3)	| (1 << PCINT4)	// Se seleccionan los bits de la máscara (5)
+	STS		PCMSK0, R16								// Bits habilitados (PB0, PB1, PB2, PB3 y PB4) por máscara		
 
 	LDI		R16, (1 << PCIE0)						// Habilita las interrupciones Pin-Change en PORTB
 	STS		PCICR, R16								// "Avisa" al registros PCICR que se habilitan en PORTB
 													// Da "permiso" "habilita"
 
-	//---------------------------------------------INICIALIZAR DISPLAY-------------------------------------------------
+//---------------------------------------------INICIALIZAR DISPLAY-------------------------------------------------
 	CALL	INIT_DIS7
 	
-	//---------------------------------------------------REGISTROS-----------------------------------------------------
+//---------------------------------------------------REGISTROS-----------------------------------------------------
 		  //R16 - MULTIUSOS GENERAL 
 	LDI		R17, 0x00								// Registro para contador de 4 bits
 		  //R18 - COMPARA BOTONES
-	LDI		R19, 0x00								// Registro para contador de unidades (segundos) display
+	LDI		R19, 0x00								// Registro para contador de unidades (minutos) display
 	LDI		R20, 0xFF								// Guarda el estado de botones
 	LDI		R21, 0x00								// Registro para cargar el valor de Z
-	LDI		R22, 0x00								// Registro para contador de decenas (segundos)
-	LDI		R23, 0x00								// Registro para contador de unidades (minutos)
+	LDI		R22, 0x00								// Registro para contador de decenas (minutos)
+	LDI		R23, 0x00								// Registro para contador de unidades (horas)
 	LDI		R24, 0x00								// Registro para contador de desbordamientos
-	LDI		R25, 0x00								// Registro para contador de decenas (minutos)
-	LDI		R26, 0x00								// Registro para contador de unidades (horas)
-	LDI		R27, 0x00								// Registro para contador de decenas (horas)
+	LDI		R25, 0x00								// Registro para contador de decenas (horas)
+	LDI		R26, 0x00								// Registro para contador de unidades (días)
+	LDI		R27, 0x00								// Registro para contador de decenas (días)
 	SEI												// Se habilitan interrupciones globales
 
 // Loop principal
@@ -150,13 +146,13 @@ DISPLAY1:
 	SBI		PORTB, PB2				// Habilitar transistor 1
 	RJMP	LOOP
 
-//------------------------------------------ Rutina de interrupción del timer -----------------------------------------
-ISR_TIMER0_OVF: 	
+//------------------------------------------ Rutina de interrupción del timer0 -----------------------------------------
+TIMER0_OVF: 	
 	SBI		TIFR0, TOV0
 	LDI		R16, 158			// Se indica donde debe iniciar el TIMER
 	OUT		TCNT0, R16				
-	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
-	CPI		R24, 5				// Si ocurre 5 veces, ya pasó el tiempo para modificar los leds
+	INC		R27					// R24 será un contador de la cant. de veces que lee el pin
+	CPI		R27, 5				// Si ocurre 5 veces, ya pasó el tiempo para modificar los leds
 	BREQ	TOGGLE	
 	RETI
 
@@ -164,8 +160,8 @@ TOGGLE:
 	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
 	RETI
 
-//------------------------------------------ Rutina de interrupción del timer -----------------------------------------
-ISR_TIMER1_OVF: 	
+//------------------------------------------ Rutina de interrupción del timer01 -----------------------------------------
+TIMER1_OVERFLOW: 	
 	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
 	STS		TCNT1L, R16
 	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
@@ -173,34 +169,68 @@ ISR_TIMER1_OVF:
 	RJMP	CONTADOR	
 	RETI
 
+// Rutina de NO interrupción 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
-// Rutina de no interrupción 
+
 CONTADOR: 
 	//ADIW	Z, 1					// Compara el valor del contador 
-	INC		R19						// Se aumenta un contador
+	INC		R19						// Se aumenta el contador de unidades de minutos
 	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
     BREQ	RESET_DISP1				// Si al comparar no es igual, salta a mostrarlo
 	LPM		R21, Z		
 	//OUT		PORTD, R16
-	LDI		R24, 0x00				// Reiniciar contador de desbordamientos de timer
+	//LDI		R24, 0x00				// Reiniciar contador de desbordamientos de timer
 	RETI
 
 RESET_DISP1:
     //CLI
 	LDI		R19, 0x00				// Resetea el contador a 0
-	INC		R22						// Incrementamos el contador de decenas
+	INC		R22						// Incrementamos el contador de decenas de minutos
 	CPI		R22, 0x06				// Comparamos si ya es 6
-	LDI		R24, 0x00
-	BREQ	TOPAMOS					// Si no es 6, sigue para actualizar
+	//LDI		R24, 0x00
+	BREQ	HORAS					// Si no es 6, sigue para actualizar
 	//SEI
 	RETI
 
-TOPAMOS:
-	LDI		R19, 0x00
-	LDI		R22, 0x00
-	LDI		R24, 0x00
+HORAS:
+	LDI		R19, 0x00				// Resetea el contador de unidades de minutos
+	LDI		R22, 0x00				// Resetea el contador de decenas de minutos
+	INC		R23						// Incrementa el contador de unidades de horas
+	CPI		R23, 0x04				// Compara para lograr formato de 24 horas
+	BREQ	FORMATO_24
+
+	//LDI		R24, 0x00
 	CALL	INIT_DIS7
 	RETI		
+
+FORMATO_24: 
+	CPI		R25, 0x02
+	BREQ	
+// -------------------------------------------- Se inicia el TIMER1 ---------------------------------------------------
+INIT_TMR1:
+	// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
+	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16	
+	
+	LDI		R16, 0x00
+	STS		TCCR1A, R16					// Se configura en modo normal 
+
+	LDI		R16, (1<<CS12) | (1<<CS10)	// Se configura prescaler de 1024
+	STS		TCCR1B, R16					// Setear prescaler del TIMER 0 a 1024
+
+	RET
+
+// -------------------------------------------- Se inicia el TIMER0 ---------------------------------------------------
+INIT_TMR0:
+	// Cargar valor inicial en TCNT1 para desborde cada 100 ms
+	LDI		R16, (1<<CS02) | (1<<CS00)
+	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
+	LDI		R16, 158					// Indicar desde donde inicia -> desborde cada 100 ms
+	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
+
+	RET
 
 // -------------------------------------------- Se inicia el display ---------------------------------------------------
 INIT_DIS7:
