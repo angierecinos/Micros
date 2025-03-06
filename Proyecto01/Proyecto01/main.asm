@@ -15,6 +15,10 @@
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
 .equ	VALOR_T1 = 0x1B1E
+.equ	VALOR_T0 = 0x64
+.equ	MODOS = 6
+.equ	BOTON_ACT = R5
+.equ	MODO = R28
 
 .cseg								// Codigo en la flash
 
@@ -24,14 +28,14 @@
 .org	PCI0addr						// Dirección donde está el vector interrupción PORTB
 	JMP	ISR_PCINT0
 
-.org	OVF0addr						// Dirección del vector para timer0
-	JMP	TIMER0_OVF
-
 .org	OVF1addr						// Dirección del vector para timer1
 	JMP	TIMER1_OVERFLOW
 
-//TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
-	
+.org	OVF0addr						// Dirección del vector para timer0
+	JMP	TIMER0_OVF
+
+TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
+
 START: 
 
 	// Configurar el SP en 0x03FF (al final de la SRAM) 
@@ -40,11 +44,7 @@ START:
 	LDI		R16, HIGH(RAMEND)			// Carga los bits altos (0x03)
 	OUT		SPH, R16					// Configura sph = 0x03) -> r16
 
-	// Display 7 Seg
-	.org 0x100  // Coloca la tabla en una dirección más alta de memoria
-	TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
-
-//SETUP:
+SETUP:
 
 	// Deshabilitar interrupciones globales
 	CLI	
@@ -54,7 +54,7 @@ START:
 	LDI		R16, (1 << CLKPCE)			// Se selecciona el bit del CLK (bit 7) 
 	STS		CLKPR, R16					// Se habilitar cambio para el prescaler
 	LDI		R16, 0b00000100				// En la tabla se ubica qué bits deben encender
-	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz
+	STS		CLKPR, R16					// Se configura prescaler a 16 para 1MHz
 	
 	CALL	INIT_TMR0
 
@@ -80,17 +80,16 @@ START:
 	LDI		R16, 0xFF
 	OUT		DDRD, R16					// Setear puerto D como salida (1 -> no recibe)
 	OUT		DDRC, R16					// Setear puerto C como salida 
-	SBI		DDRB, PB5					// Para el led que hace toggle
-	
-	LDI		R16, 0x00			
-	LDI		R23, 0x00
+	LDI		R16, 0x00					// Se apagan las salidas
 	OUT		PORTD, R16
-	OUT		PORTC, R23
-	CBI		PORTB, PB5					// Se le carga valor de 0 a PB5
+	OUT		PORTC, R16
 	
 	// Configurar PB como entradas con pull ups habilitados
+	LDI		R16, 0x20					// Se configura PB0->PB4 como entradas y PB5 como salida (0010 0000)
+	OUT		DDRB, R16
 	LDI		R16, (1 << PB0) | (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4)
 	OUT		PORTB, R16					// Habilitar pull-ups 
+	CBI		PORTB, PB5					// Se le carga valor de 0 a PB5 (Salida apagada)
 
 	// Configurar PC0, PC1, PC2 y PC3 como salidas para controlar los transistores
     LDI		R16, (1 << PC0) | (1 << PC1) | (1 << PC2) | (1 << PC3)
@@ -120,14 +119,42 @@ START:
 	LDI		R25, 0x00								// Registro para contador de decenas (horas)
 	LDI		R26, 0x00								// Registro para contador de unidades (días)
 	LDI		R27, 0x00								// Registro para contador de decenas (días)
+	LDI		MODO, 0x00
 	SEI												// Se habilitan interrupciones globales
 
 // Loop principal
-LOOP:  
-	SBRS	R24, 0
-	RJMP	DISPLAY1
-	
-	// Mostrar decenas
+MAIN:  
+	MOV		R17, R24				// Se copia el valor de R24 (del timer0) en R17
+	ANDI	R17, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
+	CPI		R17, 0 
+	BREQ	MOSTRAR_UNI_MIN
+	CPI		R17, 1
+	BREQ	MOSTRAR_DEC_MIN
+	CPI		R17, 2
+	BREQ	MOSTRAR_UNI_HOR
+	CPI		R17, 3
+	BREQ	MOSTRAR_DEC_HOR
+	RJMP	MAIN
+
+// Sub-rutinas para multiplexación de displays
+MOSTRAR_UNI_MIN:
+	// Mostrar unidades de minutos
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	ADD		ZL, R19					// Cargar el valor de Z en el contador de unidades
+	IN		R16, PORTD
+	 
+	ADD		R19, 
+	LPM		R21, Z					// Guardar el valor de Z
+	OUT		PORTD, R21
+	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
+	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
+	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
+	SBI		PORTC, PC0				// Habilitar transistor 1 - Unidades minutos
+	RJMP	MAIN
+
+MOSTRAR_DEC_MIN: 
+	// Mostrar decenas de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
 	ADD		ZL, R22					// Guardar el valor de Z en el contador de decnas
@@ -135,27 +162,36 @@ LOOP:
 	OUT		PORTD, R21
 	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
 	SBI		PORTB, PB3				// Habilitar transistor 2
-	RJMP	LOOP
+	RJMP	MAIN
 
-DISPLAY1:
-	// Mostrar unidades
+MOSTRAR_UNI_HOR: 
+	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	ADD		ZL, R19					// Cargar el valor de Z en el contador de unidades
-
-	LPM		R21, Z					// Guardar el valor de Z
+	ADD		ZL, R23					// Guardar el valor de Z en el contador de decnas
+	LPM		R21, Z					// Se guarda el valor de Z		
 	OUT		PORTD, R21
-	CBI		PORTB, PB3				// Se deshabilita transistor para PB3
-	SBI		PORTB, PB2				// Habilitar transistor 1
-	RJMP	LOOP
+	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
+	SBI		PORTB, PB3				// Habilitar transistor 2
+	RJMP	MAIN
 
+MOSTRAR_DEC_HOR:  
+	// Mostrar decenas de horas
+	LDI		ZL, LOW(TABLITA<<1)
+	LDI		ZH, HIGH(TABLITA<<1)
+	ADD		ZL, R22					// Guardar el valor de Z en el contador de decnas
+	LPM		R21, Z					// Se guarda el valor de Z		
+	OUT		PORTD, R21
+	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
+	SBI		PORTB, PB3				// Habilitar transistor 2
+	RJMP	MAIN
 //------------------------------------------ Rutina de interrupción del timer0 -----------------------------------------
 TIMER0_OVF: 	
 	SBI		TIFR0, TOV0
-	LDI		R16, 158			// Se indica donde debe iniciar el TIMER
+	LDI		R16, VALOR_T0			// Se indica donde debe iniciar el TIMER
 	OUT		TCNT0, R16				
-	INC		R27					// R24 será un contador de la cant. de veces que lee el pin
-	CPI		R27, 5				// Si ocurre 5 veces, ya pasó el tiempo para modificar los leds
+	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
+	CPI		R24, 50				// Si ocurre 50 veces, ya pasó el tiempo para modificar los leds
 	BREQ	TOGGLE	
 	RETI
 
@@ -239,9 +275,9 @@ INIT_TMR1:
 // -------------------------------------------- Se inicia el TIMER0 ---------------------------------------------------
 INIT_TMR0:
 	// Cargar valor inicial en TCNT1 para desborde cada 100 ms
-	LDI		R16, (1<<CS02) | (1<<CS00)
-	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 1024
-	LDI		R16, 158					// Indicar desde donde inicia -> desborde cada 100 ms
+	LDI		R16, (1<<CS01) | (1<<CS00)
+	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 64
+	LDI		R16, VALOR_T0				// Indicar desde donde inicia -> desborde cada 10 ms
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
 
 	RET
