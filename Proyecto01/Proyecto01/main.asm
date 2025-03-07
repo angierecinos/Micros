@@ -15,10 +15,8 @@
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
 .equ	VALOR_T1 = 0x1B1E
-.equ	VALOR_T0 = 0x64
+.equ	VALOR_T0 = 0xB2
 .equ	MODOS = 6
-.equ	BOTON_ACT = R5
-.equ	MODO = R28
 
 .cseg								// Codigo en la flash
 
@@ -119,7 +117,6 @@ SETUP:
 	LDI		R25, 0x00								// Registro para contador de decenas (horas)
 	LDI		R26, 0x00								// Registro para contador de unidades (días)
 	LDI		R27, 0x00								// Registro para contador de decenas (días)
-	LDI		MODO, 0x00
 	SEI												// Se habilitan interrupciones globales
 
 // Loop principal
@@ -141,49 +138,72 @@ MOSTRAR_UNI_MIN:
 	// Mostrar unidades de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	ADD		ZL, R19					// Cargar el valor de Z en el contador de unidades
 	IN		R16, PORTD
-	 
-	ADD		R19, 
+	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
+	MOV		R6, R19					// Para no afectar el valor del contador, se copia
+	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
+	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
-	OUT		PORTD, R21
+	//OUT		PORTD, R21
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC0				// Habilitar transistor 1 - Unidades minutos
+	OUT		PORTD, R21
 	RJMP	MAIN
 
 MOSTRAR_DEC_MIN: 
 	// Mostrar decenas de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	ADD		ZL, R22					// Guardar el valor de Z en el contador de decnas
-	LPM		R21, Z					// Se guarda el valor de Z		
+	IN		R16, PORTD
+	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
+	MOV		R6, R22					// Para no afectar el valor del contador, se copia
+	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
+	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
+	LPM		R21, Z					// Guardar el valor de Z
+	//OUT		PORTD, R21
+	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
+	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
+	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
+	SBI		PORTC, PC1				// Habilitar transistor 2 - Decenas minutos
 	OUT		PORTD, R21
-	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
-	SBI		PORTB, PB3				// Habilitar transistor 2
 	RJMP	MAIN
 
 MOSTRAR_UNI_HOR: 
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	ADD		ZL, R23					// Guardar el valor de Z en el contador de decnas
-	LPM		R21, Z					// Se guarda el valor de Z		
+	IN		R16, PORTD
+	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
+	MOV		R6, R23					// Para no afectar el valor del contador, se copia
+	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
+	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
+	LPM		R21, Z					// Guardar el valor de Z
+	//OUT		PORTD, R21
+	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
+	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
+	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
+	SBI		PORTC, PC2				// Habilitar transistor 3 - Unidades horas
 	OUT		PORTD, R21
-	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
-	SBI		PORTB, PB3				// Habilitar transistor 2
 	RJMP	MAIN
 
 MOSTRAR_DEC_HOR:  
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	ADD		ZL, R22					// Guardar el valor de Z en el contador de decnas
-	LPM		R21, Z					// Se guarda el valor de Z		
+	IN		R16, PORTD
+	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
+	MOV		R6, R25					// Para no afectar el valor del contador, se copia
+	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
+	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
+	LPM		R21, Z					// Guardar el valor de Z
+	//OUT		PORTD, R21
+	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
+	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
+	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
+	SBI		PORTC, PC3				// Habilitar transistor 4 - Decenas horas
 	OUT		PORTD, R21
-	CBI		PORTB, PB2				// Se deshabilita transistor para PB2
-	SBI		PORTB, PB3				// Habilitar transistor 2
 	RJMP	MAIN
 //------------------------------------------ Rutina de interrupción del timer0 -----------------------------------------
 TIMER0_OVF: 	
@@ -191,11 +211,12 @@ TIMER0_OVF:
 	LDI		R16, VALOR_T0			// Se indica donde debe iniciar el TIMER
 	OUT		TCNT0, R16				
 	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
-	CPI		R24, 50				// Si ocurre 50 veces, ya pasó el tiempo para modificar los leds
+	CPI		R24, 100				// Si ocurre 100 veces, ya pasó el tiempo para modificar los leds
 	BREQ	TOGGLE	
 	RETI
 
 TOGGLE: 
+	LDI		R24, 0x00			// Se reinicia el contador de desbordes	
 	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
 	RETI
 
@@ -277,7 +298,7 @@ INIT_TMR0:
 	// Cargar valor inicial en TCNT1 para desborde cada 100 ms
 	LDI		R16, (1<<CS01) | (1<<CS00)
 	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 64
-	LDI		R16, VALOR_T0				// Indicar desde donde inicia -> desborde cada 10 ms
+	LDI		R16, VALOR_T0				// Indicar desde donde inicia -> desborde cada 5 ms
 	OUT		TCNT0, R16					// Cargar valor inicial en TCNT0
 
 	RET
