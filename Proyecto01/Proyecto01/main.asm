@@ -14,7 +14,8 @@
 // -------------------------------- Encabezado ------------------------------- //
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
-.equ	VALOR_T1 = 0x1B1E
+//.equ	VALOR_T1 = 0x1B1E
+.equ	VALOR_T1 = 0xFFF1
 .equ	VALOR_T0 = 0xB2
 .equ	MODOS = 6
 
@@ -211,12 +212,12 @@ TIMER0_OVF:
 	BREQ	TOGGLE	
 	RETI
 
-/*TOGGLE: 
+TOGGLE: 
 	LDI		R24, 0x00			// Se reinicia el contador de desbordes	
 	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
-	RETI*/
+	RETI
 
-TOGGLE:
+/*TOGGLE:
     LDI     R24, 0x00                ; Se reinicia el contador de desbordes
     SBIS    PORTD, PD7               ; Si el LED está encendido, apágalo
     RJMP    ENCENDER_LED
@@ -225,7 +226,7 @@ TOGGLE:
 
 ENCENDER_LED:
     SBI     PORTD, PD7               ; Encender el LED
-    RETI
+    RETI*/
 
 //------------------------------------------ Rutina de interrupción del timer01 -----------------------------------------
 TIMER1_OVERFLOW: 	
@@ -260,30 +261,34 @@ DECENAS:
 	RETI
 
 HORAS:
-	//LDI		R19, 0x00				// Resetea el contador de unidades de minutos
+	//LDI		R19, 0x00			// Resetea el contador de unidades de minutos
 	LDI		R22, 0x00				// Resetea el contador de decenas de minutos
-	INC		R23						// Incrementa el contador de unidades de horas
-	CPI		R23, 0x0A				// Compara para lograr formato de 24 horas
-	BREQ	FORMATO_24
+	CPI		R25, 0x02				// Compara valor de decenas de horas
+	BRNE	NO_TOPAMOS				// Salta a rutina normal		
+	INC		R23
+	CPI		R23, 0x04				// Verifica el formato de 24 horas
+	BRNE	SEGUIR			//
+	RJMP	YA_24
 	RETI		
 
-FORMATO_24: 
-	LDI		R23, 0x00				// Resetea el contador de unidades de hora
-	INC		R25						// Incrementa contador de decenas de hora
-	CPI		R25, 0x02				// Compara valor de decenas
-	BRNE	NO_TOPAMOS	
-	CPI		R23, 0x04				// Verifica el formato de 24 horas
-	BRNE	NO_TOPAMOS				// Si ya son las 24, entonces reinicia todos los contadores
+NO_TOPAMOS: 
+	INC		R23						// Incrementa el contador de unidades de horas
+	CPI		R23, 0x0A				// Compara para lograr formato de 24 horas
+	BRNE	SEGUIR	
+	INC		R25
+	LDI		R23, 0x00				// Resetea contador de unidades de horas	
+	RETI
+
+SEGUIR: 
+	RETI
+
+YA_24: 
 	LDI		R19, 0x00
 	LDI		R22, 0x00
 	LDI		R23, 0x00
 	LDI		R25, 0x00
 	CALL	INIT_DIS7
 	RETI
-
-NO_TOPAMOS: 
-	RETI
-
 // -------------------------------------------- Se inicia el TIMER1 ---------------------------------------------------
 INIT_TMR1:
 	// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
