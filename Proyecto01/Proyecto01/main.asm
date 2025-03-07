@@ -141,10 +141,9 @@ MOSTRAR_UNI_MIN:
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
 	MOV		R6, R19					// Para no afectar el valor del contador, se copia
-	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
-	//OUT		PORTD, R21
+	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
@@ -159,10 +158,9 @@ MOSTRAR_DEC_MIN:
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
 	MOV		R6, R22					// Para no afectar el valor del contador, se copia
-	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
-	//OUT		PORTD, R21
+	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
@@ -177,10 +175,9 @@ MOSTRAR_UNI_HOR:
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
 	MOV		R6, R23					// Para no afectar el valor del contador, se copia
-	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
-	//OUT		PORTD, R21
+	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
@@ -195,10 +192,9 @@ MOSTRAR_DEC_HOR:
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
 	MOV		R6, R25					// Para no afectar el valor del contador, se copia
-	OR		R6, R16					// Sumar el valor de PD7 con el valor del contador
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
-	//OUT		PORTD, R21
+	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
@@ -215,10 +211,21 @@ TIMER0_OVF:
 	BREQ	TOGGLE	
 	RETI
 
-TOGGLE: 
+/*TOGGLE: 
 	LDI		R24, 0x00			// Se reinicia el contador de desbordes	
 	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
-	RETI
+	RETI*/
+
+TOGGLE:
+    LDI     R24, 0x00                ; Se reinicia el contador de desbordes
+    SBIS    PORTD, PD7               ; Si el LED está encendido, apágalo
+    RJMP    ENCENDER_LED
+    CBI     PORTD, PD7               ; Apagar el LED
+    RETI
+
+ENCENDER_LED:
+    SBI     PORTD, PD7               ; Encender el LED
+    RETI
 
 //------------------------------------------ Rutina de interrupción del timer01 -----------------------------------------
 TIMER1_OVERFLOW: 	
