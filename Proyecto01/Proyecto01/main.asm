@@ -18,8 +18,8 @@
 .equ	VALOR_T1 = 0xFFF1
 .equ	VALOR_T0 = 0xB2
 //.equ	MODOS = 6
-.def	MODO = R28
-
+//.def	MODO = R28
+.def	ACCION = R8
 .cseg								// Codigo en la flash
 
 .org	0x0000							// Donde inicia el programa
@@ -109,7 +109,7 @@ SETUP:
 //---------------------------------------------------REGISTROS-----------------------------------------------------
 		  //R16 - MULTIUSOS GENERAL 
 	LDI		R17, 0x00								// Registro para contador de MODOS
-		  //R18 - COMPARA BOTONES
+		  //R18 - Multiplexa displays
 	LDI		R19, 0x00								// Registro para contador de unidades (minutos) display
 	LDI		R20, 0xFF								// Guarda el estado de botones
 	LDI		R21, 0x00								// Registro para cargar el valor de Z
@@ -124,29 +124,29 @@ SETUP:
 // Loop principal
 MAIN:  
 	// Se multiplexan displays
-	MOV		R17, R24				// Se copia el valor de R24 (del timer0) en R17
-	ANDI	R17, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
-	CPI		R17, 0 
+	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R17
+	ANDI	R18, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
+	CPI		R18, 0 
 	BREQ	MOSTRAR_UNI_MIN
-	CPI		R17, 1
+	CPI		R18, 1
 	BREQ	MOSTRAR_DEC_MIN
-	CPI		R17, 2
+	CPI		R18, 2
 	BREQ	MOSTRAR_UNI_HOR
-	CPI		R17, 3
+	CPI		R18, 3
 	BREQ	MOSTRAR_DEC_HOR
 	// Se revisa el modo en el que está
-	CPI		MODO, 0 
-	BREQ	RELOJ_NORMAL
-	CPI		MODO, 1
-	BREQ	FECHA_NORMAL
-	CPI		MODO, 2
-	BREQ	CONFIG_RELOJ
-	CPI		MODO, 3
-	BREQ	CONFIG_FECHA
-	CPI		MODO, 4
-	BREQ	CONFIG_ALARMA
-	CPI		MODO, 5 
-	BREQ	APAGAR_ALARMA
+	CPI		R17, 0 
+	CALL	RELOJ_NORMAL
+	CPI		R17, 1
+	CALL	FECHA_NORMAL
+	CPI		R17, 2
+	CALL	CONFIG_RELOJ
+	CPI		R17, 3
+	CALL	CONFIG_FECHA
+	CPI		R17, 4
+	CALL	CONFIG_ALARMA
+	CPI		R17, 5 
+	CALL	APAGAR_ALARMA
 	
 	RJMP	MAIN
 
@@ -220,13 +220,22 @@ MOSTRAR_DEC_HOR:
 	RJMP	MAIN
 
 RELOJ_NORMAL: 
+	CBI		PORTC, PC4
+	CBI		PORTC, PC5
+	MOV		R16, ACCION
+	CPI		R16, 0x00
+	BRNE	NO_ES_EL_MODO
+	LDI		R16, 0x00
+	RJMP	CONTADOR
+
 FECHA_NORMAL: 
 CONFIG_RELOJ: 
 CONFIG_FECHA:
 CONFIG_ALARMA:
 APAGAR_ALARMA:
 
-
+NO_ES_EL_MODO: 
+	RJMP	MAIN
 
 
 // Rutina de NO interrupción 
@@ -377,18 +386,18 @@ ISR_PCINT0:
 	IN		R7, SREG
 	PUSH	R7
 
-	IN		R18, PINB				// Se lee el pin
-	CP		R18, R20				// Se compara estado de los botones
+	IN		R9, PINB				// Se lee el pin
+	CP		R9, R20				// Se compara estado de los botones
 	BREQ	SALIR					// Si siguen siendo iguales, es porque no hubo cambio
-	MOV		R20, R18				// Copia el estado de botones
+	MOV		R20, R9				// Copia el estado de botones
 
 	// PB0 -> Incrementa Min | PB1 -> Decrementa Min
 	// PB2 -> Incrementa Hor | PB3 -> Decrementa Hor | PB4 -> Modo
-	SBIS	R18, PB4				// Revisa activación de boton de modo
+	SBRS	R20, PB4				// Revisa activación de boton de modo
 	INC		R17						// Si no está set incrementa modo (0 -> apachado) 
 	LDI		R16, 0x06
 	CPSE	R17, R16				// Compara si ya se excedió la cantidad de modos
-	RJMP	PC+1
+	RJMP	PC+2
 	LDI		R17, 0x00				// Reinicia el contador de botones a 0 y sigue revisando
 	CPI		R17, 0					// Revisa en qué modo está
 	BREQ	ISR_RELOJ_NORMAL
@@ -404,7 +413,12 @@ ISR_PCINT0:
 	BREQ	ISR_APAGAR_ALARMA
 	RJMP	SALIR
 	RETI
-
+// Rutina segura para salir -> reestablece valor de SREG
+SALIR: 
+	POP		R7
+	OUT		SREG, R7
+	PUSH	R7
+	RETI
 ISR_RELOJ_NORMAL:
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
 	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
@@ -424,34 +438,57 @@ ISR_FECHA_NORMAL:
 	RJMP	SALIR
 
 ISR_CONFIG_RELOJ: 
+	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
-	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 2 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1		
+	
 	SBIS	PINB, PB1			// Se revisan ambos botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción	
-	MOV		R8, R16				// R8 guardará el valor de acción			
-	RJMP	SALIR
+	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	
+	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
+	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción			
+	
+	SBIS	PINB, PB3			// Se revisan ambos botones
+	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción	
+	
+	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
+	RJMP	SALIR				// Permite indicar qué se va a hacer
 
 ISR_CONFIG_FECHA:
+	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
-	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 2 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1		
+	
+	SBIS	PINB, PB1			// Se revisan ambos botones
+	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	
+	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
+	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción			
+	
 	SBIS	PINB, PB3			// Se revisan ambos botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción	
-	MOV		R8, R16				// R8 guardará el valor de acción	
+	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción	
+	
+	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
 	RJMP	SALIR
 
 ISR_CONFIG_ALARMA: 
+	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
-	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 2 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1		
+	
 	SBIS	PINB, PB1			// Se revisan ambos botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción
-	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 2 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	
+	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
+	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción			
+	
 	SBIS	PINB, PB3			// Se revisan ambos botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción	
-	MOV		R8, R16				// R8 guardará el valor de acción	
+	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción	
+	
+	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
 	RJMP	SALIR
 
 ISR_APAGAR_ALARMA: 
@@ -462,12 +499,7 @@ ISR_APAGAR_ALARMA:
 	STS		TCNT1H, R16	
 	RJMP	SALIR
 
-// Rutina segura para salir -> reestablece valor de SREG
-SALIR: 
-	POP		R7
-	OUT		SREG, R7
-	PUSH	R7
-	RETI
+
 
 //-----------------------------------------------INC Y DEC PUSH-BUTTONS-------------------------------------------------
 // Sub-rutinas (no de interrupción) 
