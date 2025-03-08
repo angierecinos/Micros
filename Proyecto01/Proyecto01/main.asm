@@ -17,7 +17,8 @@
 //.equ	VALOR_T1 = 0x1B1E
 .equ	VALOR_T1 = 0xFFF1
 .equ	VALOR_T0 = 0xB2
-.equ	MODOS = 6
+//.equ	MODOS = 6
+.def	MODO = R28
 
 .cseg								// Codigo en la flash
 
@@ -107,7 +108,7 @@ SETUP:
 	
 //---------------------------------------------------REGISTROS-----------------------------------------------------
 		  //R16 - MULTIUSOS GENERAL 
-	LDI		R17, 0x00								// Registro para contador de 4 bits
+	LDI		R17, 0x00								// Registro para contador de MODOS
 		  //R18 - COMPARA BOTONES
 	LDI		R19, 0x00								// Registro para contador de unidades (minutos) display
 	LDI		R20, 0xFF								// Guarda el estado de botones
@@ -122,6 +123,7 @@ SETUP:
 
 // Loop principal
 MAIN:  
+	// Se multiplexan displays
 	MOV		R17, R24				// Se copia el valor de R24 (del timer0) en R17
 	ANDI	R17, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
 	CPI		R17, 0 
@@ -132,6 +134,20 @@ MAIN:
 	BREQ	MOSTRAR_UNI_HOR
 	CPI		R17, 3
 	BREQ	MOSTRAR_DEC_HOR
+	// Se revisa el modo en el que está
+	CPI		MODO, 0 
+	BREQ	RELOJ_NORMAL
+	CPI		MODO, 1
+	BREQ	FECHA_NORMAL
+	CPI		MODO, 2
+	BREQ	CONFIG_RELOJ
+	CPI		MODO, 3
+	BREQ	CONFIG_FECHA
+	CPI		MODO, 4
+	BREQ	CONFIG_ALARMA
+	CPI		MODO, 5 
+	BREQ	APAGAR_ALARMA
+	
 	RJMP	MAIN
 
 // Sub-rutinas para multiplexación de displays
@@ -144,7 +160,7 @@ MOSTRAR_UNI_MIN:
 	MOV		R6, R19					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
-	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	OR		R21, R16				// Sumar el valor de PD7 con el valor del contador
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
@@ -202,40 +218,16 @@ MOSTRAR_DEC_HOR:
 	SBI		PORTC, PC3				// Habilitar transistor 4 - Decenas horas
 	OUT		PORTD, R21
 	RJMP	MAIN
-//------------------------------------------ Rutina de interrupción del timer0 -----------------------------------------
-TIMER0_OVF: 	
-	SBI		TIFR0, TOV0
-	LDI		R16, VALOR_T0			// Se indica donde debe iniciar el TIMER
-	OUT		TCNT0, R16				
-	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
-	CPI		R24, 100				// Si ocurre 100 veces, ya pasó el tiempo para modificar los leds
-	BREQ	TOGGLE	
-	RETI
 
-TOGGLE: 
-	LDI		R24, 0x00			// Se reinicia el contador de desbordes	
-	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
-	RETI
+RELOJ_NORMAL: 
+FECHA_NORMAL: 
+CONFIG_RELOJ: 
+CONFIG_FECHA:
+CONFIG_ALARMA:
+APAGAR_ALARMA:
 
-/*TOGGLE:
-    LDI     R24, 0x00                ; Se reinicia el contador de desbordes
-    SBIS    PORTD, PD7               ; Si el LED está encendido, apágalo
-    RJMP    ENCENDER_LED
-    CBI     PORTD, PD7               ; Apagar el LED
-    RETI
 
-ENCENDER_LED:
-    SBI     PORTD, PD7               ; Encender el LED
-    RETI*/
 
-//------------------------------------------ Rutina de interrupción del timer01 -----------------------------------------
-TIMER1_OVERFLOW: 	
-	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
-	STS		TCNT1L, R16
-	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
-	STS		TCNT1H, R16			
-	RJMP	CONTADOR	
-	RETI
 
 // Rutina de NO interrupción 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
@@ -322,29 +314,160 @@ INIT_DIS7:
 	LPM		R21, Z
 	OUT		PORTD, R21
 	RET
+//------------------------------------------ Rutina de interrupción del timer0 -----------------------------------------
+TIMER0_OVF: 	
+	SBI		TIFR0, TOV0
+	LDI		R16, VALOR_T0			// Se indica donde debe iniciar el TIMER
+	OUT		TCNT0, R16				
+	INC		R24					// R24 será un contador de la cant. de veces que lee el pin
+	CPI		R24, 100				// Si ocurre 100 veces, ya pasó el tiempo para modificar los leds
+	BREQ	TOGGLE	
+	RETI
+
+TOGGLE: 
+	LDI		R24, 0x00			// Se reinicia el contador de desbordes	
+	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
+	RETI
+
+/*TOGGLE:
+    LDI     R24, 0x00                ; Se reinicia el contador de desbordes
+    SBIS    PORTD, PD7               ; Si el LED está encendido, apágalo
+    RJMP    ENCENDER_LED
+    CBI     PORTD, PD7               ; Apagar el LED
+    RETI
+
+ENCENDER_LED:
+    SBI     PORTD, PD7               ; Encender el LED
+    RETI*/
+
+//------------------------------------------ Rutina de interrupción del timer01 -----------------------------------------
+TIMER1_OVERFLOW: 	
+	// Guarda el estado del SREG
+	PUSH	R7
+	IN		R7, SREG
+	PUSH	R7
+
+	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16	
+	
+	CPI		R17, 2
+	BREQ	SALIR_NO_TIMER	
+	CPI		R17, 3
+	BREQ	SALIR_NO_TIMER	
+	CPI		R17, 4
+	BREQ	SALIR_NO_TIMER		// Hay modos en los que no quiero usar el timer, me salgo
+	LDI		R16, 0x01			// Se utilizará R8 para "indicar" que se debe realizar algo
+	MOV		R8, R16
+	RJMP	SALIR_NO_TIMER
+	//RJMP	CONTADOR	// Vamos a quitar esto de la interrupción...
+
+// Rutina segura para salir -> reestablece valor de SREG
+SALIR_NO_TIMER: 
+	POP		R7
+	OUT		SREG, R7
+	PUSH	R7
+	RETI
 
 // --------------------------------------Rutina de interrupción para revisar PB ----------------------------------------
 ISR_PCINT0: 
+	// Guarda el estado del SREG
+	PUSH	R7
+	IN		R7, SREG
+	PUSH	R7
 
 	IN		R18, PINB				// Se lee el pin
 	CP		R18, R20				// Se compara estado de los botones
-	BREQ	NO_CAMBIO				// Si siguen siendo iguales, es porque no hubo cambio
+	BREQ	SALIR					// Si siguen siendo iguales, es porque no hubo cambio
 	MOV		R20, R18				// Copia el estado de botones
 
-	// PB0 -> Incrementa | PB1 -> Decrementa		
-	SBRS	R18, PB0				// Si el bit 0 está set salta (por pull-up 1 -> suelto) 
-	RJMP	INCREMENTAR1			// Si no está set incrementa (0 -> apachado) 
-
-	SBRS	R18, PB1				// Revisa si el bit 1 está set (1 -> no apachado) 
-	RJMP	DECREMENTAR1			// Si no está set decrementa (0 -> apachado)  
-
-	LDI		R16, (1 << PCIE0)		// Habilitar interrupciones PIN-CHANGE
-	STS		PCICR, R16				// Ya que se revisó la interrupción se revisan otras
-
+	// PB0 -> Incrementa Min | PB1 -> Decrementa Min
+	// PB2 -> Incrementa Hor | PB3 -> Decrementa Hor | PB4 -> Modo
+	SBIS	R18, PB4				// Revisa activación de boton de modo
+	INC		R17						// Si no está set incrementa modo (0 -> apachado) 
+	LDI		R16, 0x06
+	CPSE	R17, R16				// Compara si ya se excedió la cantidad de modos
+	RJMP	PC+1
+	LDI		R17, 0x00				// Reinicia el contador de botones a 0 y sigue revisando
+	CPI		R17, 0					// Revisa en qué modo está
+	BREQ	ISR_RELOJ_NORMAL
+	CPI		R17, 1
+	BREQ	ISR_FECHA_NORMAL
+	CPI		R17, 2
+	BREQ	ISR_CONFIG_RELOJ
+	CPI		R17, 3
+	BREQ	ISR_CONFIG_FECHA
+	CPI		R17, 4
+	BREQ	ISR_CONFIG_ALARMA
+	CPI		R17, 5 
+	BREQ	ISR_APAGAR_ALARMA
+	RJMP	SALIR
 	RETI
 
-NO_CAMBIO: 
-	RETI							// Lo regresa al loop
+ISR_RELOJ_NORMAL:
+	// El modo reloj normal, únicamente quiero que sume en reloj normal
+	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16	
+
+	RJMP	SALIR
+
+ISR_FECHA_NORMAL: 
+	// El modo reloj normal, únicamente quiero que sume en reloj normal
+	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16	
+
+	RJMP	SALIR
+
+ISR_CONFIG_RELOJ: 
+	LDI		R16, 0x00
+	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 2 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB1			// Se revisan ambos botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción	
+	MOV		R8, R16				// R8 guardará el valor de acción			
+	RJMP	SALIR
+
+ISR_CONFIG_FECHA:
+	LDI		R16, 0x00
+	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 2 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB3			// Se revisan ambos botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción	
+	MOV		R8, R16				// R8 guardará el valor de acción	
+	RJMP	SALIR
+
+ISR_CONFIG_ALARMA: 
+	LDI		R16, 0x00
+	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 2 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB1			// Se revisan ambos botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción
+	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 2 botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción			
+	SBIS	PINB, PB3			// Se revisan ambos botones
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción	
+	MOV		R8, R16				// R8 guardará el valor de acción	
+	RJMP	SALIR
+
+ISR_APAGAR_ALARMA: 
+	// El modo reloj normal, únicamente quiero que sume en reloj normal
+	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16	
+	RJMP	SALIR
+
+// Rutina segura para salir -> reestablece valor de SREG
+SALIR: 
+	POP		R7
+	OUT		SREG, R7
+	PUSH	R7
+	RETI
 
 //-----------------------------------------------INC Y DEC PUSH-BUTTONS-------------------------------------------------
 // Sub-rutinas (no de interrupción) 
