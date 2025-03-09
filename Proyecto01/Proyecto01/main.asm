@@ -14,8 +14,8 @@
 // -------------------------------- Encabezado ------------------------------- //
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
-.equ	VALOR_T1 = 0x1B1E
-//.equ	VALOR_T1 = 0xFFF1
+//.equ	VALOR_T1 = 0x1B1E
+.equ	VALOR_T1 = 0xFFF1
 .equ	VALOR_T0 = 0xB2
 //.equ	MODOS = 6
 //.def	MODO = R28
@@ -35,6 +35,7 @@
 	JMP	TIMER0_OVF
 
 TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
+DIAS_POR_MES: .DB 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 
 START: 
 
@@ -104,6 +105,8 @@ SETUP:
 													// Da "permiso" "habilita"
 
 //---------------------------------------------INICIALIZAR DISPLAY-------------------------------------------------
+	CALL	INIT_MESES
+//---------------------------------------------INICIALIZAR DISPLAY-------------------------------------------------
 	CALL	INIT_DIS7
 	
 //---------------------------------------------------REGISTROS-----------------------------------------------------
@@ -117,9 +120,9 @@ SETUP:
 	LDI		R23, 0x00								// Registro para contador de unidades (horas)
 	LDI		R24, 0x00								// Registro para contador de desbordamientos
 	LDI		R25, 0x00								// Registro para contador de decenas (horas)
-	LDI		R26, 0x00								// Registro para contador de unidades (días)
+	LDI		R26, 0x01								// Registro para contador de unidades (días)
 	LDI		R27, 0x00								// Registro para contador de decenas (días)
-	LDI		R28, 0x00								// Registro para contador de unidades (meses)
+	LDI		R28, 0x01								// Registro para contador de unidades (meses)
 	LDI		R29, 0x00								// Registro para contador de decenas (meses)
 	SEI												// Se habilitan interrupciones globales
 
@@ -142,8 +145,28 @@ MAIN:
 	
 	RJMP	MAIN
 MULTIPLEX:
+	CPI		R17, 0 
+	BREQ	MULTIPLEX_HORA
+	CPI		R17, 1
+	BREQ	MULTIPLEX_FECHA
+	RET
+MULTIPLEX_HORA: 
+	MOV		R2, R19
+	MOV		R3, R22
+	MOV		R4, R23
+	MOV		R5, R25
+	RJMP	AHORA_MULTIPLEXAMOS
+
+MULTIPLEX_FECHA:
+	MOV		R2, R26
+	MOV		R3, R27
+	MOV		R4, R28
+	MOV		R5, R29
+	RJMP	AHORA_MULTIPLEXAMOS
+
+AHORA_MULTIPLEXAMOS:
 	// Se multiplexan displays
-	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R17
+	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R18
 	ANDI	R18, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
 	CPI		R18, 0 
 	BREQ	MOSTRAR_UNI_MIN
@@ -154,7 +177,7 @@ MULTIPLEX:
 	CPI		R18, 3
 	BREQ	MOSTRAR_DEC_HOR
 	RET
-
+		
 CALL_RELOJ_NORMAL:
 	CALL	RELOJ_NORMAL
 	RJMP	MAIN	
@@ -181,7 +204,7 @@ MOSTRAR_UNI_MIN:
 	LDI		ZH, HIGH(TABLITA<<1)
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R19					// Para no afectar el valor del contador, se copia
+	MOV		R6, R2					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
 	OR		R21, R16				// Sumar el valor de PD7 con el valor del contador
@@ -197,7 +220,7 @@ MOSTRAR_DEC_MIN:
 	LDI		ZH, HIGH(TABLITA<<1)
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R22					// Para no afectar el valor del contador, se copia
+	MOV		R6, R3					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
 	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
@@ -213,7 +236,7 @@ MOSTRAR_UNI_HOR:
 	LDI		ZH, HIGH(TABLITA<<1)
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R23					// Para no afectar el valor del contador, se copia
+	MOV		R6, R4					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
 	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
@@ -229,7 +252,7 @@ MOSTRAR_DEC_HOR:
 	LDI		ZH, HIGH(TABLITA<<1)
 	IN		R16, PORTD
 	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R25					// Para no afectar el valor del contador, se copia
+	MOV		R6, R5					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R6					// Cargar el valor del contador de unidades a z
 	LPM		R21, Z					// Guardar el valor de Z
 	OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
@@ -252,7 +275,16 @@ RELOJ_NORMAL:
 	RET
 
 FECHA_NORMAL: 
+	SBI		PORTC, PC4
+	SBI		PORTC, PC5
+	MOV		R16, ACCION
+	CPI		R16, 0x01
+	BRNE	NO_ES_EL_MODO
+	LDI		R16, 0x00
+	MOV		ACCION, R16
+	RJMP	CONTADOR
 	RET
+
 CONFIG_RELOJ: 
 	RET
 CONFIG_FECHA:
@@ -317,10 +349,69 @@ YA_24:
 	LDI		R23, 0x00
 	LDI		R25, 0x00
 	CALL	INIT_DIS7
-	INC		R26						// Inicia contador de días
-	CPI		R26, 28
-
+	INC		R26						// Se incrementan las unidades de días
+	CPI		R26, 0x0A				// Se compara para saber si llegó a 10
+	BREQ	INC_DECENAS_DIAS		// Si es 10, se incrementan las decenas
+	CALL	VERIFICAR_DIAS			// Revisa que la cantidad de días coincidan con el mes
 	RET
+
+INC_DECENAS_DIAS: 
+	LDI		R26, 0x00				// Se reinicia el contador de unidades días
+	INC		R27						// Se incrementan las decenas de días
+	CPI		R27, 0x04				// Se compara con 4 porque el maximo de dec son 3
+	BREQ	REINICIAR_DIAS
+	RET
+
+REINICIAR_DIAS:
+	LDI		R27, 0x00				// Se reinician las decenas 
+	LDI		R26, 0x01				// Se reinician los días a 1 (el mes empieza en dia 1) 
+	CALL	INCREMENTAR_MES
+	RET
+
+INCREMENTAR_MES: 
+	INC		R28						// Si ya pasaron los días, se incrementa el mes
+	CPI		R28, 0x0A				// Se compara para ver si ya es 10
+	BREQ	INCREMENTAR_DECENAS_MES
+
+INCREMENTAR_DECENAS_MES: 
+	LDI		R28, 0x00				// Resetear unidades del mes
+	INC		R29						// Incrementar decenas mes
+	CPI		R29, 0x03				// No hay mas de 12 meses
+	BREQ	REINICIAR_MESES			// Si se cumplen los 12 meses, se reinicia
+	RET
+
+REINICIAR_MESES: 
+	LDI		R29, 0x00
+	LDI		R26, 0x01				// Se reinician los meses al 1 (enero) 
+	RET
+
+VERIFICAR_DIAS:
+    // Cargar la dirección de la tabla DIAS_POR_MES
+    LDI     ZL, LOW(DIAS_POR_MES<<1)
+    LDI     ZH, HIGH(DIAS_POR_MES<<1)
+
+    // Calcular el índice del mes actual (mes - 1)
+    MOV     R16, R28		        // Cargar unidades de mes
+    DEC     R16                     // Restar 1 (la tabla empieza en 0)
+    ADD     ZL, R16                 // Meter el índice a Z
+    LPM     R18, Z                  // Leer la cantidad de días del mes actual
+
+    // Comparar días actuales con días del mes
+    MOV     R10, R27		        // Cargar decenas de días
+    LSL	    R10                     // Convertir decenas a unidades (2 -> 20)
+								    // X * 2   (Desplazar a la izquierda una vez)
+    MOV		R11, R10 ; Guardamos el resultado temporalmente
+    LSL		R10     ; X * 4   (Otro desplazamiento a la izquierda)
+    LSL	    R10     ; X * 8   (Otro desplazamiento a la izquierda, ahora es X*8)
+    ADD		R10, R11 ; (X * 8) + (X * 2) = X * 10 
+    ADD     R10, R26		        // Sumar unidades de días (20 + 5 = 25)
+    CP      R10, R18                // Comparar con días del mes
+    BRLO    FIN_VERIFICAR_DIAS_MES  // Si es menor, no hacer nada
+    CALL    REINICIAR_DIAS          // Si es igual o mayor, reiniciar días
+
+FIN_VERIFICAR_DIAS_MES:
+    RET
+
 // -------------------------------------------- Se inicia el TIMER1 ---------------------------------------------------
 INIT_TMR1:
 	// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
@@ -348,6 +439,13 @@ INIT_TMR0:
 	RET
 
 // -------------------------------------------- Se inicia el display ---------------------------------------------------
+INIT_MESES:
+	LDI		ZL, LOW(DIAS_POR_MES<<1)
+	LDI		ZH, HIGH(DIAS_POR_MES<<1)
+	LPM		R21, Z
+	OUT		PORTD, R21
+	RET
+// -------------------------------------------- Se inicia tabla meses ---------------------------------------------------
 INIT_DIS7:
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
@@ -368,17 +466,6 @@ TOGGLE:
 	LDI		R24, 0x00			// Se reinicia el contador de desbordes	
 	SBI		PIND, PD7			// Hace un toggle cada 500 ms para los leds
 	RETI
-
-/*TOGGLE:
-    LDI     R24, 0x00                ; Se reinicia el contador de desbordes
-    SBIS    PORTD, PD7               ; Si el LED está encendido, apágalo
-    RJMP    ENCENDER_LED
-    CBI     PORTD, PD7               ; Apagar el LED
-    RETI
-
-ENCENDER_LED:
-    SBI     PORTD, PD7               ; Encender el LED
-    RETI*/
 
 //------------------------------------------ Rutina de interrupción del timer01 -----------------------------------------
 TIMER1_OVERFLOW: 	
