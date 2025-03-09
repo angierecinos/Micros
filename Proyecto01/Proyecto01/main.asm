@@ -14,8 +14,8 @@
 // -------------------------------- Encabezado ------------------------------- //
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
-//.equ	VALOR_T1 = 0x1B1E
-.equ	VALOR_T1 = 0xFFF1
+.equ	VALOR_T1 = 0x1B1E
+//.equ	VALOR_T1 = 0xFFF1
 .equ	VALOR_T0 = 0xB2
 //.equ	MODOS = 6
 //.def	MODO = R28
@@ -119,10 +119,29 @@ SETUP:
 	LDI		R25, 0x00								// Registro para contador de decenas (horas)
 	LDI		R26, 0x00								// Registro para contador de unidades (días)
 	LDI		R27, 0x00								// Registro para contador de decenas (días)
+	LDI		R28, 0x00								// Registro para contador de unidades (meses)
+	LDI		R29, 0x00								// Registro para contador de decenas (meses)
 	SEI												// Se habilitan interrupciones globales
 
 // Loop principal
 MAIN:  
+	CALL	MULTIPLEX
+	// Se revisa el modo en el que está
+	CPI		R17, 0 
+	BREQ	CALL_RELOJ_NORMAL
+	CPI		R17, 1
+	BREQ	CALL_FECHA_NORMAL
+	CPI		R17, 2
+	BREQ	CALL_CONFIG_RELOJ
+	CPI		R17, 3
+	BREQ	CALL_CONFIG_FECHA
+	CPI		R17, 4
+	BREQ	CALL_CONFIG_ALARMA
+	CPI		R17, 5 
+	BREQ	CALL_APAGAR_ALARMA
+	
+	RJMP	MAIN
+MULTIPLEX:
 	// Se multiplexan displays
 	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R17
 	ANDI	R18, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
@@ -134,20 +153,25 @@ MAIN:
 	BREQ	MOSTRAR_UNI_HOR
 	CPI		R18, 3
 	BREQ	MOSTRAR_DEC_HOR
-	// Se revisa el modo en el que está
-	CPI		R17, 0 
+	RET
+
+CALL_RELOJ_NORMAL:
 	CALL	RELOJ_NORMAL
-	CPI		R17, 1
+	RJMP	MAIN	
+CALL_FECHA_NORMAL:
 	CALL	FECHA_NORMAL
-	CPI		R17, 2
+	RJMP	MAIN
+CALL_CONFIG_RELOJ:
 	CALL	CONFIG_RELOJ
-	CPI		R17, 3
+	RJMP	MAIN
+CALL_CONFIG_FECHA:
 	CALL	CONFIG_FECHA
-	CPI		R17, 4
+	RJMP	MAIN
+CALL_CONFIG_ALARMA:
 	CALL	CONFIG_ALARMA
-	CPI		R17, 5 
+	RJMP	MAIN
+CALL_APAGAR_ALARMA:
 	CALL	APAGAR_ALARMA
-	
 	RJMP	MAIN
 
 // Sub-rutinas para multiplexación de displays
@@ -166,8 +190,7 @@ MOSTRAR_UNI_MIN:
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC0				// Habilitar transistor 1 - Unidades minutos
 	OUT		PORTD, R21
-	RJMP	MAIN
-
+	RET
 MOSTRAR_DEC_MIN: 
 	// Mostrar decenas de minutos
 	LDI		ZL, LOW(TABLITA<<1)
@@ -183,8 +206,7 @@ MOSTRAR_DEC_MIN:
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC1				// Habilitar transistor 2 - Decenas minutos
 	OUT		PORTD, R21
-	RJMP	MAIN
-
+	RET
 MOSTRAR_UNI_HOR: 
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
@@ -200,8 +222,7 @@ MOSTRAR_UNI_HOR:
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC2				// Habilitar transistor 3 - Unidades horas
 	OUT		PORTD, R21
-	RJMP	MAIN
-
+	RET
 MOSTRAR_DEC_HOR:  
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
@@ -217,25 +238,32 @@ MOSTRAR_DEC_HOR:
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	SBI		PORTC, PC3				// Habilitar transistor 4 - Decenas horas
 	OUT		PORTD, R21
-	RJMP	MAIN
+	RET
 
 RELOJ_NORMAL: 
-	CBI		PORTC, PC4
-	CBI		PORTC, PC5
+	SBI		PORTC, PC4
+	SBI		PORTC, PC5
 	MOV		R16, ACCION
-	CPI		R16, 0x00
+	CPI		R16, 0x01
 	BRNE	NO_ES_EL_MODO
 	LDI		R16, 0x00
+	MOV		ACCION, R16
 	RJMP	CONTADOR
+	RET
 
 FECHA_NORMAL: 
+	RET
 CONFIG_RELOJ: 
+	RET
 CONFIG_FECHA:
+	RET
 CONFIG_ALARMA:
+	RET
 APAGAR_ALARMA:
+	RET
 
 NO_ES_EL_MODO: 
-	RJMP	MAIN
+	RET
 
 
 // Rutina de NO interrupción 
@@ -249,7 +277,7 @@ CONTADOR:
 	LPM		R21, Z		
 	//OUT		PORTD, R16
 	//LDI		R24, 0x00				// Reiniciar contador de desbordamientos de timer
-	RETI
+	RET
 
 DECENAS:
     //CLI
@@ -259,7 +287,7 @@ DECENAS:
 	//LDI		R24, 0x00
 	BREQ	HORAS					// Si no es 6, sigue para actualizar
 	//SEI
-	RETI
+	RET
 
 HORAS:
 	//LDI		R19, 0x00			// Resetea el contador de unidades de minutos
@@ -270,7 +298,7 @@ HORAS:
 	CPI		R23, 0x04				// Verifica el formato de 24 horas
 	BRNE	SEGUIR			//
 	RJMP	YA_24
-	RETI		
+	RET		
 
 NO_TOPAMOS: 
 	INC		R23						// Incrementa el contador de unidades de horas
@@ -278,10 +306,10 @@ NO_TOPAMOS:
 	BRNE	SEGUIR	
 	INC		R25
 	LDI		R23, 0x00				// Resetea contador de unidades de horas	
-	RETI
+	RET
 
 SEGUIR: 
-	RETI
+	RET
 
 YA_24: 
 	LDI		R19, 0x00
@@ -289,7 +317,10 @@ YA_24:
 	LDI		R23, 0x00
 	LDI		R25, 0x00
 	CALL	INIT_DIS7
-	RETI
+	INC		R26						// Inicia contador de días
+	CPI		R26, 28
+
+	RET
 // -------------------------------------------- Se inicia el TIMER1 ---------------------------------------------------
 INIT_TMR1:
 	// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
@@ -368,7 +399,7 @@ TIMER1_OVERFLOW:
 	CPI		R17, 4
 	BREQ	SALIR_NO_TIMER		// Hay modos en los que no quiero usar el timer, me salgo
 	LDI		R16, 0x01			// Se utilizará R8 para "indicar" que se debe realizar algo
-	MOV		R8, R16
+	MOV		ACCION, R16
 	RJMP	SALIR_NO_TIMER
 	//RJMP	CONTADOR	// Vamos a quitar esto de la interrupción...
 
@@ -376,7 +407,7 @@ TIMER1_OVERFLOW:
 SALIR_NO_TIMER: 
 	POP		R7
 	OUT		SREG, R7
-	PUSH	R7
+	POP		R7
 	RETI
 
 // --------------------------------------Rutina de interrupción para revisar PB ----------------------------------------
@@ -393,7 +424,7 @@ ISR_PCINT0:
 
 	// PB0 -> Incrementa Min | PB1 -> Decrementa Min
 	// PB2 -> Incrementa Hor | PB3 -> Decrementa Hor | PB4 -> Modo
-	SBRS	R20, PB4				// Revisa activación de boton de modo
+	SBRS	R9, PB4				// Revisa activación de boton de modo
 	INC		R17						// Si no está set incrementa modo (0 -> apachado) 
 	LDI		R16, 0x06
 	CPSE	R17, R16				// Compara si ya se excedió la cantidad de modos
@@ -417,7 +448,7 @@ ISR_PCINT0:
 SALIR: 
 	POP		R7
 	OUT		SREG, R7
-	PUSH	R7
+	POP		R7
 	RETI
 ISR_RELOJ_NORMAL:
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
