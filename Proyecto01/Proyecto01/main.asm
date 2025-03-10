@@ -35,7 +35,8 @@
 	JMP	TIMER0_OVF
 
 TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
-DIAS_POR_MES: .DB 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+DIAS_POR_MES: .DB 32, 29, 32, 31, 32, 31, 32, 32, 31, 32, 31, 32
+//DIAS_POR_MES: .DB 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 
 START: 
 
@@ -158,10 +159,10 @@ MULTIPLEX_HORA:
 	RJMP	AHORA_MULTIPLEXAMOS
 
 MULTIPLEX_FECHA:
-	MOV		R2, R26
-	MOV		R3, R27
-	MOV		R4, R28
-	MOV		R5, R29
+	MOV		R2, R28
+	MOV		R3, R29
+	MOV		R4, R26
+	MOV		R5, R27
 	RJMP	AHORA_MULTIPLEXAMOS
 
 AHORA_MULTIPLEXAMOS:
@@ -372,17 +373,18 @@ INCREMENTAR_MES:
 	INC		R28						// Si ya pasaron los días, se incrementa el mes
 	CPI		R28, 0x0A				// Se compara para ver si ya es 10
 	BREQ	INCREMENTAR_DECENAS_MES
+	RET
 
 INCREMENTAR_DECENAS_MES: 
 	LDI		R28, 0x00				// Resetear unidades del mes
 	INC		R29						// Incrementar decenas mes
-	CPI		R29, 0x03				// No hay mas de 12 meses
+	CPI		R29, 0x02				// No hay mas de 12 meses
 	BREQ	REINICIAR_MESES			// Si se cumplen los 12 meses, se reinicia
 	RET
 
 REINICIAR_MESES: 
 	LDI		R29, 0x00
-	LDI		R26, 0x01				// Se reinician los meses al 1 (enero) 
+	LDI		R28, 0x01				// Se reinician los meses al 1 (enero) 
 	RET
 
 VERIFICAR_DIAS:
@@ -399,15 +401,15 @@ VERIFICAR_DIAS:
     // Comparar días actuales con días del mes
     MOV     R10, R27		        // Cargar decenas de días
     LSL	    R10                     // Convertir decenas a unidades (2 -> 20)
-								    // X * 2   (Desplazar a la izquierda una vez)
-    MOV		R11, R10 ; Guardamos el resultado temporalmente
-    LSL		R10     ; X * 4   (Otro desplazamiento a la izquierda)
-    LSL	    R10     ; X * 8   (Otro desplazamiento a la izquierda, ahora es X*8)
-    ADD		R10, R11 ; (X * 8) + (X * 2) = X * 10 
+								    // X*2 (Desplazar a la izquierda una vez)
+    MOV		R11, R10				// Guardamos el resultado temporalmente
+    LSL		R10						// X*4 (Otro desplazamiento a la izquierda)
+    LSL	    R10						// X*8 (Otro desplazamiento a la izquierda, ahora es X*8)
+    ADD		R10, R11				// (X*8) + (X*2) = X*10 
     ADD     R10, R26		        // Sumar unidades de días (20 + 5 = 25)
     CP      R10, R18                // Comparar con días del mes
-    BRLO    FIN_VERIFICAR_DIAS_MES  // Si es menor, no hacer nada
-    CALL    REINICIAR_DIAS          // Si es igual o mayor, reiniciar días
+    BRLO    FIN_VERIFICAR_DIAS_MES   ; Si es menor, no hacer nada
+    CALL    REINICIAR_DIAS           ; Si es igual o mayor, reiniciar días
 
 FIN_VERIFICAR_DIAS_MES:
     RET
