@@ -287,6 +287,22 @@ FECHA_NORMAL:
 	RET
 
 CONFIG_RELOJ: 
+	SBI		PORTC, PC4
+	CBI		PORTC, PC5
+	MOV		R16, ACCION			// Revisar bandera de acción
+	
+	CPI		R16, 0x01
+	BREQ	INC_DISP_MIN
+	CPI		R16, 0x02
+	BREQ	DEC_DISP_MIN
+	CPI		R16, 0x01
+	BREQ	INC_DISP_HOR
+	CPI		R16, 0x03
+	BREQ	DEC_DISP_HOR
+	LDI		R16, 0x04
+	RJMP	NO_ES_EL_MODO
+	LDI		R16, 0x00			// Resetear bandera de acción
+	MOV		ACCION, R16
 	RET
 CONFIG_FECHA:
 	RET
@@ -298,38 +314,114 @@ APAGAR_ALARMA:
 NO_ES_EL_MODO: 
 	RET
 
+//-----------------------------------------------INC Y DEC PUSH-BUTTONS-------------------------------------------------
+// Sub-rutinas (no de interrupción) - INC/DEC Display 1
+INC_DISP_MIN: 	
+	INC		R19						// Incrementa el valor
+	CPI		R19, 0x0A				// Compara el valor del contador 
+    BREQ	OVER_DECENAS			// Si al comparar no es igual, salta a mostrarlo
+	LPM		R21, Z
+	RET								// Vuelve al ciclo main a repetir
+
+OVER_DECENAS:
+    LDI		R19, 0x00				// Resetea el contador de unidades a 0
+	INC		R22						// Incrementamos el contador de decenas de minutos
+	CPI		R22, 0x06				// Comparamos si ya es 6
+	BREQ	RESETEO_HORA			// Si no es 6, sigue para actualizar
+	RET
+
+RESETEO_HORA:
+    LDI		R19, 0x00				// Resetea el contador a 0
+	LDI		R22, 0x00
+	RET
+
+DEC_DISP_MIN: 
+	DEC		R19						// R19 decrementará
+	CPI		R19, 0xFF				// Si el contador llega a 0, reiniciar el contador
+	BREQ	RESET_MINUTOS			// Si es igual a 0 no hace nada y vuelve a main
+	RET								// Regresa a main si ya decremento
+
+RESET_MINUTOS: 
+	LDI		R19, 0x09
+	DEC		R22
+	CPI		R22, 0xFF
+	BREQ	RESET_DECENAS
+	RET
+
+RESET_DECENAS:
+	LDI		R22, 0x05
+	RET
+
+// Sub-rutinas (no de interrupción) - INC/DEC Display 2
+INC_DISP_HOR: 	
+	CPI		R25, 0x02				// Compara valor de decenas de horas
+	BRNE	NO_24					// Salta a rutina normal		
+	INC		R23
+	CPI		R23, 0x04				// Verifica el formato de 24 horas
+	BRNE	SIGAMOS			
+	RJMP	FORMATO24
+	RET		
+
+NO_24: 
+	INC		R23						// Incrementa el contador de unidades de horas
+	CPI		R23, 0x0A				// Compara para lograr formato de 24 horas
+	BRNE	SIGAMOS	
+	INC		R25
+	LDI		R23, 0x00				// Resetea contador de unidades de horas	
+	RET
+
+SIGAMOS: 
+	RET
+
+FORMATO24: 
+	LDI		R23, 0x00
+	LDI		R25, 0x00
+	RET
+
+
+DEC_DISP_HOR: 
+	DEC		R19						// R19 decrementará
+	CPI		R19, 0xFF				// Si el contador llega a 0, reiniciar el contador
+	BREQ	RESET_MINUTOS			// Si es igual a 0 no hace nada y vuelve a main
+	RET								// Regresa a main si ya decremento
+
+RESET_MINUTOS2: 
+	LDI		R19, 0x09
+	DEC		R22
+	CPI		R22, 0xFF
+	BREQ	RESET_DECENAS2
+	RET
+
+RESET_DECENAS2:
+	LDI		R22, 0x05
+	RET	
+
+
 
 // Rutina de NO interrupción 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
 
 CONTADOR: 
-	//ADIW	Z, 1					// Compara el valor del contador 
 	INC		R19						// Se aumenta el contador de unidades de minutos
 	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
     BREQ	DECENAS					// Si al comparar no es igual, salta a mostrarlo
 	LPM		R21, Z		
-	//OUT		PORTD, R16
-	//LDI		R24, 0x00				// Reiniciar contador de desbordamientos de timer
 	RET
 
 DECENAS:
-    //CLI
 	LDI		R19, 0x00				// Resetea el contador a 0
 	INC		R22						// Incrementamos el contador de decenas de minutos
 	CPI		R22, 0x06				// Comparamos si ya es 6
-	//LDI		R24, 0x00
 	BREQ	HORAS					// Si no es 6, sigue para actualizar
-	//SEI
 	RET
 
 HORAS:
-	//LDI		R19, 0x00			// Resetea el contador de unidades de minutos
 	LDI		R22, 0x00				// Resetea el contador de decenas de minutos
 	CPI		R25, 0x02				// Compara valor de decenas de horas
 	BRNE	NO_TOPAMOS				// Salta a rutina normal		
 	INC		R23
 	CPI		R23, 0x04				// Verifica el formato de 24 horas
-	BRNE	SEGUIR			//
+	BRNE	SEGUIR			
 	RJMP	YA_24
 	RET		
 
@@ -408,8 +500,8 @@ VERIFICAR_DIAS:
     ADD		R10, R11				// (X*8) + (X*2) = X*10 
     ADD     R10, R26		        // Sumar unidades de días (20 + 5 = 25)
     CP      R10, R18                // Comparar con días del mes
-    BRLO    FIN_VERIFICAR_DIAS_MES   ; Si es menor, no hacer nada
-    CALL    REINICIAR_DIAS           ; Si es igual o mayor, reiniciar días
+    BRLO    FIN_VERIFICAR_DIAS_MES  // Si es menor, no hacer nada
+    CALL    REINICIAR_DIAS          // Si es igual o mayor, reiniciar días
 
 FIN_VERIFICAR_DIAS_MES:
     RET
@@ -539,74 +631,88 @@ SALIR:
 	OUT		SREG, R7
 	POP		R7
 	RETI
+
 ISR_RELOJ_NORMAL:
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
 	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
 	STS		TCNT1L, R16
 	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
 	STS		TCNT1H, R16	
-
 	RJMP	SALIR
-
 ISR_FECHA_NORMAL: 
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
 	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
 	STS		TCNT1L, R16
 	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
 	STS		TCNT1H, R16	
-
 	RJMP	SALIR
-
 ISR_CONFIG_RELOJ: 
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
 	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1		
-	
+	RJMP	INC_DISP1			// Solo se considera un botonazo a la vez
+			
 	SBIS	PINB, PB1			// Se revisan ambos botones
-	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	RJMP	DEC_DISP1			// Solo se considera un botonazo a la vez
 	
 	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
-	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción			
+	RJMP	INC_DISP2			// Solo se considera un botonazo a la vez			
 	
 	SBIS	PINB, PB3			// Se revisan ambos botones
-	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción	
+	RJMP	DEC_DISP2			// Solo se considera un botonazo a la vez	
 	
 	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
-	RJMP	SALIR				// Permite indicar qué se va a hacer
+	RJMP	SALIR
 
 ISR_CONFIG_FECHA:
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
 	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1		
-	
+	RJMP	INC_DISP1			// Solo se considera un botonazo a la vez
+			
 	SBIS	PINB, PB1			// Se revisan ambos botones
-	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	RJMP	DEC_DISP1			// Solo se considera un botonazo a la vez
 	
 	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
-	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción			
+	RJMP	INC_DISP2			// Solo se considera un botonazo a la vez			
 	
 	SBIS	PINB, PB3			// Se revisan ambos botones
-	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción	
+	RJMP	DEC_DISP2			// Solo se considera un botonazo a la vez	
 	
 	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
+	RJMP	SALIR
+
+INC_DISP1: 
+	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	MOV		ACCION, R16
+	RJMP	SALIR
+DEC_DISP1: 
+	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Dec Disp 1
+	MOV		ACCION, R16
+	RJMP	SALIR
+INC_DISP2: 
+	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción -> Inc Disp 2
+	MOV		ACCION, R16
+	RJMP	SALIR
+DEC_DISP2: 
+	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción -> Dec Disp 2
+	MOV		ACCION, R16
 	RJMP	SALIR
 
 ISR_CONFIG_ALARMA: 
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
 	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
-	LDI		R16, 0x01			// Se enciende el indicador de que debe haber acción -> Inc Disp 1		
-	
+	RJMP	INC_DISP1			// Solo se considera un botonazo a la vez
+			
 	SBIS	PINB, PB1			// Se revisan ambos botones
-	LDI		R16, 0x02			// Se enciende el indicador de que debe haber acción -> Inc Disp 1
+	RJMP	DEC_DISP1			// Solo se considera un botonazo a la vez
 	
 	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
-	LDI		R16, 0x03			// Se enciende el indicador de que debe haber acción			
+	RJMP	INC_DISP2			// Solo se considera un botonazo a la vez			
 	
 	SBIS	PINB, PB3			// Se revisan ambos botones
-	LDI		R16, 0x04			// Se enciende el indicador de que debe haber acción	
+	RJMP	DEC_DISP2			// Solo se considera un botonazo a la vez	
 	
 	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
 	RJMP	SALIR
@@ -618,31 +724,3 @@ ISR_APAGAR_ALARMA:
 	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
 	STS		TCNT1H, R16	
 	RJMP	SALIR
-
-
-
-//-----------------------------------------------INC Y DEC PUSH-BUTTONS-------------------------------------------------
-// Sub-rutinas (no de interrupción) 
-INCREMENTAR1: 	
-	CPI		R17, 0x0F				// Compara el valor del contador 
-    BREQ	RESET_COUNTER1			// Si al comparar no es igual, salta a mostrarlo
-	INC		R17						// Incrementa el valor
-	OUT		PORTC, R17				// Muestra en el portD el valor
-	RETI							// Vuelve al ciclo main a repetir
-
-DECREMENTAR1: 
-	DEC		R17						// R19 decrementará
-	CPI		R17, 0xFF				// Si el contador llega a 0, reiniciar el contador
-	BREQ	RESET_COUNTER2			// Si es igual a 0 no hace nada y vuelve a main
-	OUT		PORTC, R17				// Muestra en el PORTD el cambio de contador
-	RETI							// Regresa a main si ya decremento
-
-RESET_COUNTER1:
-    LDI		R17, 0x00				// Resetea el contador a 0
-	OUT		PORTC, R17
-	RETI
-	
-RESET_COUNTER2:
-    LDI		R17, 0x0F				// Resetea el contador a 15
-	OUT		PORTC, R17
-	RETI
