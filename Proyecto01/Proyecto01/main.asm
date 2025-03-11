@@ -15,7 +15,7 @@
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
 //.equ	VALOR_T1 = 0x1B1E
-.equ	VALOR_T1 = 0xFFF1
+.equ	VALOR_T1 = 0xFF70
 .equ	VALOR_T0 = 0xB2
 //.equ	MODOS = 6
 //.def	MODO = R28
@@ -71,11 +71,7 @@ SETUP:
 	LDI		R16, 0b00000100				// En la tabla se ubica qué bits deben encender
 	STS		CLKPR, R16					// Se configura prescaler a 64 para 1MHz*/
 
-	CALL	INIT_TMR1
-
-// Habilitar interrupción por desborde del TIMER1
-	LDI		R16, (1 << TOIE1)			// Habilita interrupción por desborde del TIMER1
-	STS		TIMSK1, R16					
+				
 
 // ------------------------------------Configuración de los puertos----------------------------------
 	//	PORTD, PORTC y PB5 como salida 
@@ -106,11 +102,12 @@ SETUP:
 													// Da "permiso" "habilita"
 
 //---------------------------------------------INICIALIZAR DISPLAY-------------------------------------------------
-	CALL	INIT_MESES
+	//CALL	INIT_MESES
 //---------------------------------------------INICIALIZAR DISPLAY-------------------------------------------------
 	CALL	INIT_DIS7
 	
 //---------------------------------------------------REGISTROS-----------------------------------------------------
+
 		  //R16 - MULTIUSOS GENERAL 
 	LDI		R17, 0x00								// Registro para contador de MODOS
 		  //R18 - Multiplexa displays
@@ -125,6 +122,11 @@ SETUP:
 	LDI		R27, 0x00								// Registro para contador de decenas (días)
 	LDI		R28, 0x01								// Registro para contador de unidades (meses)
 	LDI		R29, 0x00								// Registro para contador de decenas (meses)
+	CALL	INIT_TMR1
+
+// Habilitar interrupción por desborde del TIMER1
+	LDI		R16, (1 << TOIE1)			// Habilita interrupción por desborde del TIMER1
+	STS		TIMSK1, R16		
 	SEI												// Se habilitan interrupciones globales
 
 // Loop principal
@@ -152,6 +154,10 @@ MULTIPLEX:
 	BREQ	MULTIPLEX_FECHA
 	RET
 MULTIPLEX_HORA: 
+	CLR		R2
+	CLR		R3
+	CLR		R4
+	CLR		R5
 	MOV		R2, R19
 	MOV		R3, R22
 	MOV		R4, R23
@@ -159,6 +165,10 @@ MULTIPLEX_HORA:
 	RJMP	AHORA_MULTIPLEXAMOS
 
 MULTIPLEX_FECHA:
+	CLR		R2
+	CLR		R3
+	CLR		R4
+	CLR		R5
 	MOV		R2, R28
 	MOV		R3, R29
 	MOV		R4, R26
@@ -265,6 +275,8 @@ MOSTRAR_DEC_HOR:
 	RET
 
 RELOJ_NORMAL: 
+	// El modo reloj normal, únicamente quiero que sume en reloj normal
+	LDI		R16, 0x00
 	SBI		PORTC, PC4
 	SBI		PORTC, PC5
 	MOV		R16, ACCION
@@ -378,25 +390,24 @@ FORMATO24:
 	LDI		R25, 0x00
 	RET
 
-
+// Decrementar horas
 DEC_DISP_HOR: 
-	DEC		R19						// R19 decrementará
-	CPI		R19, 0xFF				// Si el contador llega a 0, reiniciar el contador
-	BREQ	RESET_MINUTOS			// Si es igual a 0 no hace nada y vuelve a main
+	DEC		R23						// R23 decrementará
+	CPI		R23, 0xFF				// Si el contador llega a 0, reiniciar el contador
+	BREQ	RESET_HOR				// Si es igual a 0 no hace nada y vuelve a main
 	RET								// Regresa a main si ya decremento
 
-RESET_MINUTOS2: 
-	LDI		R19, 0x09
-	DEC		R22
-	CPI		R22, 0xFF
+RESET_HOR: 
+	LDI		R23, 0x09
+	DEC		R25
+	CPI		R25, 0xFF
 	BREQ	RESET_DECENAS2
 	RET
 
 RESET_DECENAS2:
-	LDI		R22, 0x05
-	RET	
-
-
+	LDI		R23, 0x03
+	CPI		R25, 0x02				// Compara valor de decenas de horas
+	RET		
 
 // Rutina de NO interrupción 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
@@ -508,17 +519,20 @@ FIN_VERIFICAR_DIAS_MES:
 
 // -------------------------------------------- Se inicia el TIMER1 ---------------------------------------------------
 INIT_TMR1:
+	
+	LDI		R16, (1<<CS12) | (1<<CS10)	// Se configura prescaler de 1024
+	STS		TCCR1B, R16					// Setear prescaler del TIMER 0 a 1024
+
 	// Cargar valor inicial en TCNT1 para desborde cada 1 minuto
 	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
 	STS		TCNT1L, R16
 	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
 	STS		TCNT1H, R16	
 	
-	LDI		R16, 0x00
-	STS		TCCR1A, R16					// Se configura en modo normal 
+	/*LDI		R16, 0x00
+	STS		TCCR1A, R16	*/				// Se configura en modo normal 
 
-	LDI		R16, (1<<CS12) | (1<<CS10)	// Se configura prescaler de 1024
-	STS		TCCR1B, R16					// Setear prescaler del TIMER 0 a 1024
+	
 
 	RET
 
@@ -567,11 +581,11 @@ TIMER1_OVERFLOW:
 	PUSH	R7
 	IN		R7, SREG
 	PUSH	R7
-
-	LDI		R16, LOW(VALOR_T1)				// Cargar el byte bajo de 6942 (0x1E)
+	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
 	STS		TCNT1L, R16
-	LDI		R16, HIGH(VALOR_T1)				// Cargar el byte alto de 6942 (0x1B)
+	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
 	STS		TCNT1H, R16	
+	
 	
 	CPI		R17, 2
 	BREQ	SALIR_NO_TIMER	
@@ -699,6 +713,14 @@ DEC_DISP2:
 	MOV		ACCION, R16
 	RJMP	SALIR
 
+ISR_APAGAR_ALARMA: 
+	// El modo reloj normal, únicamente quiero que sume en reloj normal
+	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
+	STS		TCNT1L, R16
+	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
+	STS		TCNT1H, R16	
+	RJMP	SALIR
+
 ISR_CONFIG_ALARMA: 
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
 	LDI		R16, 0x00
@@ -717,10 +739,3 @@ ISR_CONFIG_ALARMA:
 	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
 	RJMP	SALIR
 
-ISR_APAGAR_ALARMA: 
-	// El modo reloj normal, únicamente quiero que sume en reloj normal
-	LDI		R16, LOW(VALOR_T1)			// Cargar el byte bajo de 6942 (0x1E)
-	STS		TCNT1L, R16
-	LDI		R16, HIGH(VALOR_T1)			// Cargar el byte alto de 6942 (0x1B)
-	STS		TCNT1H, R16	
-	RJMP	SALIR
