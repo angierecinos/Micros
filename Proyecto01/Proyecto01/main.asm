@@ -17,9 +17,7 @@
 .equ	VALOR_T1 = 0x1B1E
 //.equ	VALOR_T1 = 0xFF50
 .equ	VALOR_T0 = 0xB2
-//.equ	MODOS = 6
-//.def	MODO = R28
-.def	ACCION = R8
+.def	ACCION = R21
 .cseg								// Codigo en la flash
 
 .org	0x0000							// Donde inicia el programa
@@ -81,16 +79,15 @@ SETUP:
 	OUT		PORTC, R16
 	
 	// Configurar PB como entradas con pull ups habilitados
-	LDI		R16, 0x21					// Se configura PB1->PB4 como entradas y PB5/PB1 como salida (0010 0000)
+	LDI		R16, (0 << PB1) | (0 << PB2) | (0 << PB4)	// Se configura PB1, PB2 y PB4 como entradas y PB5/PB3/PB1 como salida (0010 1010)
 	OUT		DDRB, R16
-	LDI		R16, (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4)
+	LDI		R16, (1 << PB0) | (1 << PB3) | (1 << PB5)	// Se configura PB1, PB2 y PB4 como entradas y PB5/PB3/PB1 como salida (0010 1010)
+	OUT		DDRB, R16
+	LDI		R16, (1 << PB1) | (1 << PB2) | (1 << PB4)
 	OUT		PORTB, R16					// Habilitar pull-ups 
 	CBI		PORTB, PB0					// Se le carga valor de 0 a PB0 (Salida apagada) 
+	CBI		PORTB, PB3					// Se le carga valor de 0 a PB3 (Salida apagada)
 	CBI		PORTB, PB5					// Se le carga valor de 0 a PB5 (Salida apagada)
-
-	// Configurar PC0, PC1, PC2 y PC3 como salidas para controlar los transistores
-    LDI		R16, (1 << PC0) | (1 << PC1) | (1 << PC2) | (1 << PC3)
-    OUT		DDRC, R16
 
 // ------------------------------------Configuración de interrupción para botones----------------------------------
 	LDI		R16, (1 << PCINT0) | (1 << PCINT1) | (1 << PCINT2) | (1 << PCINT3)	| (1 << PCINT4)	// Se seleccionan los bits de la máscara (5)
@@ -104,13 +101,14 @@ SETUP:
 	CALL	INIT_DIS7
 	
 //---------------------------------------------------REGISTROS-----------------------------------------------------
-
+	CLR		R4
+	CLR		R5
 		  //R16 - MULTIUSOS GENERAL 
 	LDI		R17, 0x00								// Registro para contador de MODOS
 		  //R18 - Multiplexa displays
 	LDI		R19, 0x00								// Registro para contador de unidades (minutos) display
-	LDI		R20, 0xDE								// Guarda el estado de botones
-	LDI		R21, 0x00								// Registro para cargar el valor de Z
+	LDI		R20, 0x00								// Accion para timer
+	LDI		R21, 0x00								// Registro para boton de accion
 	LDI		R22, 0x00								// Registro para contador de decenas (minutos)
 	LDI		R23, 0x00								// Registro para contador de unidades (horas)
 	LDI		R24, 0x00								// Registro para contador de desbordamientos
@@ -125,49 +123,63 @@ SETUP:
 MAIN:  
 	CALL	MULTIPLEX
 	// Se revisa el modo en el que está
+	//CPI		ACCION, 0x01					// Si se activa botón, se cambia de modo
+	//BREQ	MODOS
+	
 	CPI		R17, 0 
 	BREQ	CALL_RELOJ_NORMAL
 	CPI		R17, 1
 	BREQ	CALL_FECHA_NORMAL
 	CPI		R17, 2
-	BREQ	CALL_CONFIG_RELOJ
+	BREQ	CALL_CONFIG_MIN_RELOJ
 	CPI		R17, 3
-	BREQ	CALL_CONFIG_FECHA
+	BREQ	CALL_CONFIG_HOR_RELOJ
 	CPI		R17, 4
+	BREQ	CALL_CONFIG_MES_FECHA
+	CPI		R17, 5
+	BREQ	CALL_CONFIG_DIA_FECHA
+	CPI		R17, 6
 	BREQ	CALL_CONFIG_ALARMA
-	CPI		R17, 5 
+	CPI		R17, 7 
 	BREQ	CALL_APAGAR_ALARMA
 	
 	RJMP	MAIN
-MULTIPLEX:
-	CPI		R17, 0 
-	BREQ	MULTIPLEX_HORA
-	CPI		R17, 1
-	BREQ	MULTIPLEX_FECHA
-	CPI		R17, 2 
-	BREQ	MULTIPLEX_HORA
-	CPI		R17, 3
-	BREQ	MULTIPLEX_FECHA
-	RET
+
 CALL_RELOJ_NORMAL:
 	CALL	RELOJ_NORMAL
 	RJMP	MAIN	
 CALL_FECHA_NORMAL:
 	CALL	FECHA_NORMAL
 	RJMP	MAIN
-CALL_CONFIG_RELOJ:
-	CALL	CONFIG_RELOJ
+CALL_CONFIG_MIN_RELOJ:
+	CALL	CONFIG_MIN
 	RJMP	MAIN
-CALL_CONFIG_FECHA:
-	CALL	CONFIG_FECHA
+CALL_CONFIG_HOR_RELOJ:
+	CALL	CONFIG_HOR
+	RJMP	MAIN
+CALL_CONFIG_MES_FECHA:
+	CALL	CONFIG_MES
+	RJMP	MAIN
+CALL_CONFIG_DIA_FECHA:
+	CALL	CONFIG_DIA
 	RJMP	MAIN
 CALL_CONFIG_ALARMA:
-	CALL	CONFIG_ALARMA
+	CALL	CONFIG_ALARM
 	RJMP	MAIN
 CALL_APAGAR_ALARMA:
-	CALL	APAGAR_ALARMA
+	CALL	ALARM_OFF
 	RJMP	MAIN
 
+MULTIPLEX:
+	CPI		R17, 0 
+	BREQ	MULTIPLEX_HORA
+	CPI		R17, 1
+	BREQ	MULTIPLEX_FECHA
+	CPI		R17, 2
+	BREQ	MULTIPLEX_HORA
+	CPI		R17, 3
+	BREQ	MULTIPLEX_HORA
+	RET
 MULTIPLEX_HORA: 
 	// Se multiplexan displays
 	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R18
@@ -193,6 +205,7 @@ MULTIPLEX_FECHA:
 	CPI		R18, 3
 	BREQ	MOSTRAR_DECENA_DIA
 	RET
+
 // Sub-rutinas para multiplexación de displays
 MOSTRAR_UNI_MIN:
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
@@ -202,69 +215,55 @@ MOSTRAR_UNI_MIN:
 	// Mostrar unidades de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	/*IN		R16, PORTD
-	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R19	*/				// Para no afectar el valor del contador, se copia
 	ADD		ZL, R19					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16				// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC0				// Habilitar transistor 1 - Unidades minutos
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 MOSTRAR_DEC_MIN: 
 	// Mostrar decenas de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	//IN		R16, PORTD
-	/*ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R22*/					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R22					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC1				// Habilitar transistor 2 - Decenas minutos
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
+
 MOSTRAR_UNIDAD_MES:
 	RJMP	MOSTRAR_UNI_MES
 MOSTRAR_DECENA_MES:
 	RJMP	MOSTRAR_DEC_MES
+
 MOSTRAR_UNI_HOR: 
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	//IN		R16, PORTD
-	//ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	//MOV		R6, R23					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R23					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC2				// Habilitar transistor 3 - Unidades horas
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 MOSTRAR_DEC_HOR:  
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	/*IN		R16, PORTD
-	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R25*/					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R25					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	SBI		PORTC, PC3				// Habilitar transistor 4 - Decenas horas
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 
 MOSTRAR_UNIDAD_DIA:
@@ -277,108 +276,209 @@ MOSTRAR_UNI_MES:
 	// Mostrar unidades de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	/*IN		R16, PORTD
-	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R28	*/				// Para no afectar el valor del contador, se copia
 	ADD		ZL, R28					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16				// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC0				// Habilitar transistor 1 - Unidades minutos
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 MOSTRAR_DEC_MES: 
 	// Mostrar decenas de minutos
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	/*IN		R16, PORTD
-	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R29*/					// Para no afectar el valor del contador, se copia
 	ADD		ZL, R29					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC1				// Habilitar transistor 2 - Decenas minutos
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 MOSTRAR_UNI_DIA: 
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	/*IN		R16, PORTD
-	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R26	*/				// Para no afectar el valor del contador, se copia
 	ADD		ZL, R26					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC3				// Se deshabilita transistor para PC3
 	SBI		PORTC, PC2				// Habilitar transistor 3 - Unidades horas
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 MOSTRAR_DEC_DIA:  
 	// Mostrar decenas de horas
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	/*IN		R16, PORTD
-	ANDI	R16, 0b10000000			// Solo se toma el valor para PD7 y se ponen en 0 los demás
-	MOV		R6, R27	*/				// Para no afectar el valor del contador, se copia
 	ADD		ZL, R27					// Cargar el valor del contador de unidades a z
-	LPM		R21, Z					// Guardar el valor de Z
-	//OR		R21, R16					// Sumar el valor de PD7 con el valor del contador
+	LPM		R4, Z					// Guardar el valor de Z
 	CBI		PORTC, PC0				// Se deshabilita transistor para PC0
 	CBI		PORTC, PC1				// Se deshabilita transistor para PC1
 	CBI		PORTC, PC2				// Se deshabilita transistor para PC2
 	SBI		PORTC, PC3				// Habilitar transistor 4 - Decenas horas
-	OUT		PORTD, R21
+	OUT		PORTD, R4
 	RET
 
 RELOJ_NORMAL: 
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
-	//LDI		R16, 0x00
-	SBI		PORTC, PC4
-	SBI		PORTC, PC5
-	MOV		R16, ACCION
-	CPI		R16, 0x01
+	CBI		PORTC, PC4
+	CBI		PORTC, PC5
+	CBI		PORTB, PB3
+	CPI		R20, 0x01
 	BRNE	NO_ES_EL_MODO
-	LDI		R16, 0x00
-	MOV		ACCION, R16
-	//CPI		R17, 0x00
+	LDI		R20, 0x00
 	RJMP	CONTADOR
 	RET
 
 FECHA_NORMAL: 
 	SBI		PORTC, PC4
-	SBI		PORTC, PC5
-	MOV		R16, ACCION
-	CPI		R16, 0x01
+	CBI		PORTC, PC5
+	CBI		PORTB, PB3
+	CPI		R20, 0x01
 	BRNE	NO_ES_EL_MODO
-	LDI		R16, 0x00
-	MOV		ACCION, R16
+	LDI		R20, 0x00
 	RJMP	CONTADOR
 	RET
 
-CONFIG_RELOJ: 
-	SBI		PORTC, PC4
+CONFIG_MIN: 
+	CBI		PORTC, PC4
+	CBI		PORTC, PC5
+	SBI		PORTB, PB3
+	CPI		ACCION, 0x02
+	BREQ	INC_MIN
+	CPI		ACCION, 0x03
+	BREQ	DEC_MIN
+	RET
+
+CONFIG_HOR: 
+	CBI		PORTC, PC4
 	SBI		PORTC, PC5
+	CBI		PORTB, PB3
+	CPI		ACCION, 0x02
+	BREQ	INC_HOR
+	CPI		ACCION, 0x03
+	BREQ	DEC_HOR
 	RET
-CONFIG_FECHA:
+
+CONFIG_MES:
 	RET
-CONFIG_ALARMA:
+CONFIG_DIA:
 	RET
-APAGAR_ALARMA:
+CONFIG_ALARM:
+	RET
+ALARM_OFF:
 	RET
 
 NO_ES_EL_MODO: 
 	RET
 
+INC_MIN: 
+	CALL	INC_DISP1
+	LDI		ACCION, 0x00
+	RET
+DEC_MIN: 
+	CALL	DEC_DISP1
+	LDI		ACCION, 0x00
+	RET
+INC_HOR: 
+	CALL	INC_DISP2
+	LDI		ACCION, 0x00
+	RET
+DEC_HOR: 
+	CALL	DEC_DISP2
+	LDI		ACCION, 0x00
+	RET
 //-----------------------------------------------INC Y DEC PUSH-BUTTONS-------------------------------------------------
+// Subrutina para incrementar minutos
+INC_DISP1: 		
+	INC		R19						// Incrementa el valor
+	CPI		R19, 0x0A				// Compara el valor del contador 
+    BREQ	OVER_DECENAS			// Si al comparar no es igual, salta a mostrarlo
+	LPM		R4, Z
+	RET							// Vuelve al ciclo main a repetir
 
+OVER_DECENAS:
+    LDI		R19, 0x00				// Resetea el contador de unidades a 0
+	INC		R22						// Incrementamos el contador de decenas de minutos
+	CPI		R22, 0x06				// Comparamos si ya es 6
+	BREQ	RESETEO_HORA			// Si no es 6, sigue para actualizar
+	RET
+
+RESETEO_HORA:
+    LDI		R19, 0x00				// Resetea el contador a 0
+	LDI		R22, 0x00
+	RET
+
+// Subrutina para decrementar minutos
+DEC_DISP1: 
+	DEC		R19						// R19 decrementará
+	CPI		R19, 0xFF				// Si el contador llega a 0, reiniciar el contador
+	BREQ	RESET_MINUTOS			// Si es igual a 0 no hace nada y vuelve a main
+	RET								// Regresa a main si ya decremento
+
+RESET_MINUTOS: 
+	LDI		R19, 0x09
+	DEC		R22
+	CPI		R22, 0xFF
+	BREQ	RESET_DECENAS
+	RET
+
+RESET_DECENAS:
+	LDI		R22, 0x05
+	RET
+
+// Subrutina para incrementar horas
+INC_DISP2: 	
+	CPI		R25, 0x02				// Compara valor de decenas de horas
+	BREQ	LLEGA_24				// Revisa si llega a 20 y salta		
+	INC		R23
+	CPI		R23, 0x0A				// Verifica el formato de 24 horas
+	BRNE	SIGAMOS			
+	RJMP	OVF_UNI_HORA
+	RET		
+
+OVF_UNI_HORA: 
+	LDI		R23, 0x00				// Resetea las unidades de las horas
+	INC		R25						// Incrementa las decenas de horas
+	RET
+
+LLEGA_24: 
+	INC		R23						// Incrementa el contador de unidades de horas
+	CPI		R23, 0x04				// Compara para lograr formato de 24 horas
+	BREQ	FORMATO24	
+	INC		R25
+	LDI		R23, 0x00				// Resetea contador de unidades de horas	
+	RET
+
+SIGAMOS: 
+	RET
+
+FORMATO24: 
+	LDI		R23, 0x00
+	LDI		R25, 0x00
+	RET
+
+// Subrutina para decrementar horas
+DEC_DISP2: 
+	// Decrementar horas	
+	DEC		R23						// R23 decrementará
+	CPI		R23, 0xFF				// Si el contador llega a 0, reiniciar el contador
+	BREQ	RESET_HOR				// Si es igual a 0 no hace nada y vuelve a main
+	RET					// Regresa a main si ya decremento
+
+RESET_HOR: 
+	LDI		R23, 0x09
+	DEC		R25
+	CPI		R25, 0xFF
+	BREQ	RESET_DECENAS2
+	RET
+
+RESET_DECENAS2:
+	LDI		R23, 0x03
+	CPI		R25, 0x02				// Compara valor de decenas de horas		
+	RET
 
 // Rutina de NO interrupción 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
@@ -386,8 +486,7 @@ NO_ES_EL_MODO:
 CONTADOR: 
 	INC		R19						// Se aumenta el contador de unidades de minutos
 	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
-    BREQ	DECENAS					// Si al comparar no es igual, salta a mostrarlo
-	//LPM		R21, Z		
+    BREQ	DECENAS					// Si al comparar no es igual, salta a mostrarlo		
 	RET
 
 DECENAS:
@@ -503,8 +602,6 @@ INIT_TMR1:
 	LDI		R16, 0x00
 	STS		TCCR1A, R16					// Se configura en modo normal 
 
-	
-
 	RET
 
 // -------------------------------------------- Se inicia el TIMER0 ---------------------------------------------------
@@ -517,19 +614,12 @@ INIT_TMR0:
 
 	RET
 
-// -------------------------------------------- Se inicia el display ---------------------------------------------------
-INIT_MESES:
-	LDI		ZL, LOW(DIAS_POR_MES<<1)
-	LDI		ZH, HIGH(DIAS_POR_MES<<1)
-	LPM		R21, Z
-	//OUT		PORTD, R21
-	RET
 // -------------------------------------------- Se inicia tabla meses ---------------------------------------------------
 INIT_DIS7:
 	LDI		ZL, LOW(TABLITA<<1)
 	LDI		ZH, HIGH(TABLITA<<1)
-	LPM		R21, Z
-	OUT		PORTD, R21
+	LPM		R4, Z
+	OUT		PORTD, R4
 	RET
 //------------------------------------------ Rutina de interrupción del timer0 -----------------------------------------
 TIMER0_OVF: 	
@@ -564,8 +654,8 @@ TIMER1_OVERFLOW:
 	BREQ	SALIR_NO_TIMER	
 	CPI		R17, 4
 	BREQ	SALIR_NO_TIMER		// Hay modos en los que no quiero usar el timer, me salgo
-	LDI		R16, 0x01			// Se utilizará R8 para "indicar" que se debe realizar algo
-	MOV		ACCION, R16
+	
+	LDI		R20, 0x01			// Se utilizará R8 para "indicar" que se debe realizar algo
 	RJMP	SALIR_NO_TIMER
 	//RJMP	CONTADOR	// Vamos a quitar esto de la interrupción...
 
@@ -582,36 +672,44 @@ ISR_PCINT0:
 	PUSH	R7
 	IN		R7, SREG
 	PUSH	R7
+	LDI		R16, 0xD6
+	MOV		R6, R16
+	IN		R7, PINB			// Se lee el pin
+	MOV		R9, R7				// Copia el estado de botones
+	EOR		R9, R6				// Revisa si hubo cambio
 
-	IN		R9, PINB				// Se lee el pin
-	CP		R9, R20				// Se compara estado de los botones
-	BREQ	SALIR					// Si siguen siendo iguales, es porque no hubo cambio
-	MOV		R20, R9				// Copia el estado de botones
-
-	// PB0 -> Incrementa Min | PB1 -> Decrementa Min
-	// PB2 -> Incrementa Hor | PB3 -> Decrementa Hor | PB4 -> Modo
-	SBRS	R9, PB4				// Revisa activación de boton de modo
-	INC		R17						// Si no está set incrementa modo (0 -> apachado) 
-	LDI		R16, 0x06
-	CPSE	R17, R16				// Compara si ya se excedió la cantidad de modos
-	RJMP	PC+2
-	LDI		R17, 0x00				// Reinicia el contador de botones a 0 y sigue revisando
-	LDI		R16, 0x00				// Limpia R16 para preparar modos
-	
-	CPI		R17, 0					// Revisa en qué modo está
-	BREQ	ISR_RELOJ_NORMAL
-	CPI		R17, 1
-	BREQ	ISR_FECHA_NORMAL
-	CPI		R17, 2
-	BREQ	ISR_CONFIG_RELOJ
-	CPI		R17, 3
-	BREQ	ISR_CONFIG_FECHA
-	CPI		R17, 4
-	BREQ	ISR_CONFIG_ALARMA
-	CPI		R17, 5 
-	BREQ	ISR_APAGAR_ALARMA
+	// PB4 -> Modo | PB2 -> Incrementa | PB1 -> Decrementa 
+	SBRC	R9, PB4				// Revisa activación de boton de modo
+	RJMP	ACT_MODO
+	SBRC	R9, PB2				// Revisa activación de botón inc
+	RJMP	ACT_INC
+	SBRC	R9, PB1				// Revisa activación de botón dec
+	RJMP	ACT_DEC
 	RJMP	SALIR
-	RETI
+
+ACT_MODO: 
+	SBIS	PINB, PB4			// Revisa si está presionado (0 -> apachado)
+	RJMP	MODOS				// Activa acción para PB0
+	RJMP	SALIR
+MODOS: 
+	INC		R17
+	CPI		R17, 0x09
+	BREQ	OVF_MODOS
+	RJMP	SALIR
+OVF_MODOS: 
+	LDI		R17, 0x00
+	RJMP	SALIR
+
+ACT_INC: 
+	SBIS	PINB, PB2			// Revisa si está presionado (0 -> apachado)
+	LDI		ACCION, 0x02		// Activa acción para PB0
+	RJMP	SALIR
+
+ACT_DEC: 
+	SBIS	PINB, PB1			// Revisa si está presionado (0 -> apachado)
+	LDI		ACCION, 0x03		// Activa acción para PB0
+	RJMP	SALIR
+
 // Rutina segura para salir -> reestablece valor de SREG
 SALIR: 
 	POP		R7
@@ -624,45 +722,6 @@ ISR_RELOJ_NORMAL:
 	RJMP	SALIR
 ISR_FECHA_NORMAL: 
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
-	RJMP	SALIR
-
-ISR_CONFIG_RELOJ: 
-	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
-	LDI		R16, 0x00
-	IN		R9, PINB
-	SBRS	R9, PB1				// Como para configurar reloj, se tienen 3 botones
-	RJMP	EDIT_DISP1
-	INC		R16
-	CPI		R16, 0x02
-	BREQ	OVF_CONFIG			// Se seleccionará entre display 1 y display 2, si se pasa resetear
-	CPI		R16, 0x01		
-	BREQ	EDIT_DISP2			// Si es 1, editará el display2 (horas y días) 
-	CPI		R16, 0x00
-	BREQ	EDIT_DISP1			// Si es 0, editará el display1 (minutos y meses)
-	
-	RJMP	SALIR
-
-EDIT_DISP1: 
-	SBRS	R9, PB2			// Se revisa si se quiere incrementar
-	RJMP	INC_DISP1			// Se incrementarán minutos y meses
-			
-	SBRS	R9, PB3			// Se revisa si se quiere decrementar
-	RJMP	DEC_DISP1			// Se decrementarán minutos y meses
-
-	RJMP	SALIR
-
-EDIT_DISP2: 	
-	SBRS	R9, PB2				// Se revisa si se quiere incrementar 
-	RJMP	INC_DISP2			// Se incrementarán horas y días			
-	
-	SBRS	R9, PB3				// Se revisa si se quiere decrementar
-	RJMP	DEC_DISP2			//	Se decrementarán horas y días	
-
-	RJMP	SALIR
-
-OVF_CONFIG:		
-	LDI		R16, 0x00			// Se resetea el registro para seleccionar display
-	MOV		R7, R16
 	RJMP	SALIR
 
 ISR_CONFIG_FECHA:
@@ -693,90 +752,3 @@ ISR_CONFIG_ALARMA:
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar		
 	RJMP	SALIR
 
-INC_DISP1: 
-	// Sub-rutina - INC/DEC Display 1 	
-	INC		R19						// Incrementa el valor
-	CPI		R19, 0x0A				// Compara el valor del contador 
-    BREQ	OVER_DECENAS			// Si al comparar no es igual, salta a mostrarlo
-	LPM		R21, Z
-	RJMP	SALIR							// Vuelve al ciclo main a repetir
-
-OVER_DECENAS:
-    LDI		R19, 0x00				// Resetea el contador de unidades a 0
-	INC		R22						// Incrementamos el contador de decenas de minutos
-	CPI		R22, 0x06				// Comparamos si ya es 6
-	BREQ	RESETEO_HORA			// Si no es 6, sigue para actualizar
-	RJMP	SALIR
-
-RESETEO_HORA:
-    LDI		R19, 0x00				// Resetea el contador a 0
-	LDI		R22, 0x00
-	RJMP	SALIR
-
-DEC_DISP1: 
-	DEC		R19						// R19 decrementará
-	CPI		R19, 0xFF				// Si el contador llega a 0, reiniciar el contador
-	BREQ	RESET_MINUTOS			// Si es igual a 0 no hace nada y vuelve a main
-	RJMP	SALIR								// Regresa a main si ya decremento
-
-RESET_MINUTOS: 
-	LDI		R19, 0x09
-	DEC		R22
-	CPI		R22, 0xFF
-	BREQ	RESET_DECENAS
-	RJMP	SALIR
-
-RESET_DECENAS:
-	LDI		R22, 0x05
-	RJMP	SALIR
-
-// Sub-rutinas - INC/DEC Display 2
-INC_DISP2: 	
-	CPI		R25, 0x02				// Compara valor de decenas de horas
-	BREQ	LLEGA_24				// Revisa si llega a 20 y salta		
-	INC		R23
-	CPI		R23, 0x0A				// Verifica el formato de 24 horas
-	BRNE	SIGAMOS			
-	RJMP	OVF_UNI_HORA
-	RJMP	SALIR		
-
-OVF_UNI_HORA: 
-	LDI		R23, 0x00				// Resetea las unidades de las horas
-	INC		R25						// Incrementa las decenas de horas
-	RJMP	SALIR
-
-LLEGA_24: 
-	INC		R23						// Incrementa el contador de unidades de horas
-	CPI		R23, 0x04				// Compara para lograr formato de 24 horas
-	BREQ	FORMATO24	
-	INC		R25
-	LDI		R23, 0x00				// Resetea contador de unidades de horas	
-	RJMP	SALIR
-
-SIGAMOS: 
-	RJMP	SALIR
-
-FORMATO24: 
-	LDI		R23, 0x00
-	LDI		R25, 0x00
-	RET
-	RJMP	SALIR
-
-DEC_DISP2: 
-	// Decrementar horas	
-	DEC		R23						// R23 decrementará
-	CPI		R23, 0xFF				// Si el contador llega a 0, reiniciar el contador
-	BREQ	RESET_HOR				// Si es igual a 0 no hace nada y vuelve a main
-	RJMP	SALIR					// Regresa a main si ya decremento
-
-RESET_HOR: 
-	LDI		R23, 0x09
-	DEC		R25
-	CPI		R25, 0xFF
-	BREQ	RESET_DECENAS2
-	RJMP	SALIR
-
-RESET_DECENAS2:
-	LDI		R23, 0x03
-	CPI		R25, 0x02				// Compara valor de decenas de horas		
-	RJMP	SALIR
