@@ -588,7 +588,7 @@ VERIFY_DIAS:
 	LSL		R6						// Correr a la izq -> X*8
 	ADD		R6, R8					// Se suman para -> X*10
 	MOV     R16, R28		        // Cargar unidades de mes
-
+	ADD		R16, R6					// Se suma la decena con la unidad del mes
     DEC     R16                     // Restar 1 (la tabla empieza en 0)
     ADD     ZL, R16                 // Meter el índice a Z
     LPM     R16, Z                  // Leer la cantidad de días del mes actual
