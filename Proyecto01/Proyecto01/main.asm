@@ -90,7 +90,7 @@ SETUP:
 	CBI		PORTB, PB5					// Se le carga valor de 0 a PB5 (Salida apagada)
 
 // ------------------------------------Configuración de interrupción para botones----------------------------------
-	LDI		R16, (1 << PCINT0) | (1 << PCINT1) | (1 << PCINT2) | (1 << PCINT3)	| (1 << PCINT4)	// Se seleccionan los bits de la máscara (5)
+	LDI		R16, (1 << PCINT1) | (1 << PCINT2) | (1 << PCINT4)	// Se seleccionan los bits de la máscara (5)
 	STS		PCMSK0, R16								// Bits habilitados (PB0, PB1, PB2, PB3 y PB4) por máscara		
 
 	LDI		R16, (1 << PCIE0)						// Habilita las interrupciones Pin-Change en PORTB
@@ -105,7 +105,7 @@ SETUP:
 	CLR		R5
 		  //R16 - MULTIUSOS GENERAL 
 	LDI		R17, 0x00								// Registro para contador de MODOS
-		  //R18 - Multiplexa displays
+	LDI		R18, 0xFF								// Registro para guardar estado de botones
 	LDI		R19, 0x00								// Registro para contador de unidades (minutos) display
 	LDI		R20, 0x00								// Accion para timer
 	LDI		R21, 0x00								// Registro para boton de accion
@@ -171,38 +171,42 @@ CALL_APAGAR_ALARMA:
 	RJMP	MAIN
 
 MULTIPLEX:
-	CPI		R17, 0 
-	BREQ	MULTIPLEX_HORA
-	CPI		R17, 1
+	CPI		R17, 0				// Modo reloj normal
+	BREQ	MULTIPLEX_HORA		
+	CPI		R17, 1				// Modo fecha normal
 	BREQ	MULTIPLEX_FECHA
-	CPI		R17, 2
+	CPI		R17, 2				// Modo config minutos
 	BREQ	MULTIPLEX_HORA
-	CPI		R17, 3
+	CPI		R17, 3				// Modo config horas
 	BREQ	MULTIPLEX_HORA
+	CPI		R17, 4				// Modo config mes
+	BREQ	MULTIPLEX_FECHA
+	CPI		R17, 5				// Modo config dias
+	BREQ	MULTIPLEX_FECHA
 	RET
 MULTIPLEX_HORA: 
 	// Se multiplexan displays
-	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R18
-	ANDI	R18, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
-	CPI		R18, 0 
+	MOV		R16, R24				// Se copia el valor de R24 (del timer0) 
+	ANDI	R16, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
+	CPI		R16, 0 
 	BREQ	MOSTRAR_UNI_MIN
-	CPI		R18, 1
+	CPI		R16, 1
 	BREQ	MOSTRAR_DEC_MIN
-	CPI		R18, 2
+	CPI		R16, 2
 	BREQ	MOSTRAR_UNI_HOR
-	CPI		R18, 3
+	CPI		R16, 3
 	BREQ	MOSTRAR_DEC_HOR
 	RET
 MULTIPLEX_FECHA:
-	MOV		R18, R24				// Se copia el valor de R24 (del timer0) en R18
-	ANDI	R18, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
-	CPI		R18, 0 
+	MOV		R16, R24				// Se copia el valor de R24 (del timer0)
+	ANDI	R16, 0b00000011			// Se realiza un ANDI, con el propósito de multiplexar displays
+	CPI		R16, 0 
 	BREQ	MOSTRAR_UNIDAD_MES
-	CPI		R18, 1
+	CPI		R16, 1
 	BREQ	MOSTRAR_DECENA_MES
-	CPI		R18, 2
+	CPI		R16, 2
 	BREQ	MOSTRAR_UNIDAD_DIA
-	CPI		R18, 3
+	CPI		R16, 3
 	BREQ	MOSTRAR_DECENA_DIA
 	RET
 
@@ -336,6 +340,7 @@ FECHA_NORMAL:
 	SBI		PORTC, PC4
 	CBI		PORTC, PC5
 	CBI		PORTB, PB3
+	SBI		PORTB, PB0
 	CPI		R20, 0x01
 	BRNE	NO_ES_EL_MODO
 	LDI		R20, 0x00
@@ -346,6 +351,7 @@ CONFIG_MIN:
 	CBI		PORTC, PC4
 	CBI		PORTC, PC5
 	SBI		PORTB, PB3
+	SBI		PORTB, PB0
 	CPI		ACCION, 0x02
 	BREQ	INC_MIN
 	CPI		ACCION, 0x03
@@ -363,9 +369,24 @@ CONFIG_HOR:
 	RET
 
 CONFIG_MES:
+	SBI		PORTC, PC4
+	SBI		PORTC, PC5
+	CBI		PORTB, PB3
+	CPI		ACCION, 0x02
+	BREQ	INC_MES
+	CPI		ACCION, 0x03
+	BREQ	DEC_MES
 	RET
 CONFIG_DIA:
+	CBI		PORTC, PC4
+	SBI		PORTC, PC5
+	SBI		PORTB, PB3
+	CPI		ACCION, 0x02
+	BREQ	INC_DIA
+	CPI		ACCION, 0x03
+	BREQ	DEC_DIA
 	RET
+
 CONFIG_ALARM:
 	RET
 ALARM_OFF:
@@ -390,14 +411,31 @@ DEC_HOR:
 	CALL	DEC_DISP2
 	LDI		ACCION, 0x00
 	RET
-//-----------------------------------------------INC Y DEC PUSH-BUTTONS-------------------------------------------------
+
+INC_MES: 
+	CALL	INC_DISP_MES
+	LDI		ACCION, 0x00
+	RET
+DEC_MES: 
+	CALL	DEC_DISP_MES
+	LDI		ACCION, 0x00
+	RET
+INC_DIA: 
+	CALL	INC_DISP_DIA
+	LDI		ACCION, 0x00
+	RET
+DEC_DIA: 
+	CALL	DEC_DISP_DIA
+	LDI		ACCION, 0x00
+	RET
+
 // Subrutina para incrementar minutos
 INC_DISP1: 		
 	INC		R19						// Incrementa el valor
 	CPI		R19, 0x0A				// Compara el valor del contador 
     BREQ	OVER_DECENAS			// Si al comparar no es igual, salta a mostrarlo
 	LPM		R4, Z
-	RET							// Vuelve al ciclo main a repetir
+	RET					// Vuelve r
 
 OVER_DECENAS:
     LDI		R19, 0x00				// Resetea el contador de unidades a 0
@@ -416,7 +454,7 @@ DEC_DISP1:
 	DEC		R19						// R19 decrementará
 	CPI		R19, 0xFF				// Si el contador llega a 0, reiniciar el contador
 	BREQ	RESET_MINUTOS			// Si es igual a 0 no hace nada y vuelve a main
-	RET								// Regresa a main si ya decremento
+	RET					// Regresa a main si ya decremento
 
 RESET_MINUTOS: 
 	LDI		R19, 0x09
@@ -432,57 +470,151 @@ RESET_DECENAS:
 // Subrutina para incrementar horas
 INC_DISP2: 	
 	CPI		R25, 0x02				// Compara valor de decenas de horas
-	BREQ	LLEGA_24				// Revisa si llega a 20 y salta		
+	BREQ	LLEGA_24				// Revisa si llega a 20 y salta				
+	RJMP	FORMATO24		
+
+LLEGA_24: 
+	CPI		R23, 0x03				// Compara para lograr formato de 24 horas
+	BREQ	OVF_UNI_HORA	
+	RJMP	FORMATO24				// Resetea contador de unidades de horas	
+
+FORMATO24: 
 	INC		R23
-	CPI		R23, 0x0A				// Verifica el formato de 24 horas
-	BRNE	SIGAMOS			
-	RJMP	OVF_UNI_HORA
-	RET		
+	CPI		R23, 0x0A
+	BRNE	SALIR2
+	LDI		R23, 0x00
+	INC		R25
+	RJMP	SALIR2
 
 OVF_UNI_HORA: 
 	LDI		R23, 0x00				// Resetea las unidades de las horas
-	INC		R25						// Incrementa las decenas de horas
-	RET
+	LDI		R25, 0x00				// Incrementa las decenas de horas
+	RJMP	SALIR2
 
-LLEGA_24: 
-	INC		R23						// Incrementa el contador de unidades de horas
-	CPI		R23, 0x04				// Compara para lograr formato de 24 horas
-	BREQ	FORMATO24	
-	INC		R25
-	LDI		R23, 0x00				// Resetea contador de unidades de horas	
-	RET
-
-SIGAMOS: 
-	RET
-
-FORMATO24: 
-	LDI		R23, 0x00
-	LDI		R25, 0x00
+SALIR2: 
 	RET
 
 // Subrutina para decrementar horas
 DEC_DISP2: 
 	// Decrementar horas	
+	CPI		R25, 0x00
+	BREQ	REVISAR_UNI
+	RJMP	DEC_HOURS
+
+REVISAR_UNI: 
+	CPI		R23, 0x00
+	BREQ	RESET_DECENAS2
+	RJMP	DEC_HOURS
+
+DEC_HOURS: 
 	DEC		R23						// R23 decrementará
 	CPI		R23, 0xFF				// Si el contador llega a 0, reiniciar el contador
-	BREQ	RESET_HOR				// Si es igual a 0 no hace nada y vuelve a main
-	RET					// Regresa a main si ya decremento
-
-RESET_HOR: 
+	BRNE	SEGUIR2
 	LDI		R23, 0x09
-	DEC		R25
-	CPI		R25, 0xFF
-	BREQ	RESET_DECENAS2
-	RET
+	DEC		R25						// Si es igual a 0 no hace nada y vuelve a main
+	RET								// Regresa a main si ya decremento
 
 RESET_DECENAS2:
 	LDI		R23, 0x03
-	CPI		R25, 0x02				// Compara valor de decenas de horas		
+	LDI		R25, 0x02				// Compara valor de decenas de horas		
+	RET	
+
+SEGUIR2:
+	RET
+
+// Se incrementan los días 
+INC_DISP_DIA:
+	INC		R26						// Se incrementan las unidades de días
+	CPI		R26, 0x0A				// Se compara para saber si llegó a 10
+	BREQ	INC_DEC_DIAS		// Si es 10, se incrementan las decenas
+	CALL	VERIFY_DIAS			// Revisa que la cantidad de días coincidan con el mes
+	RET
+
+INC_DEC_DIAS: 
+	LDI		R26, 0x00				// Se reinicia el contador de unidades días
+	INC		R27						// Se incrementan las decenas de días
+	CPI		R27, 0x04				// Se compara con 4 porque el maximo de dec son 3
+	BREQ	RESET_DIAS
+	RET
+
+RESET_DIAS:
+	LDI		R27, 0x00				// Se reinician las decenas 
+	LDI		R26, 0x01				// Se reinician los días a 1 (el mes empieza en dia 1) 
+	RET
+
+DEC_DISP_DIA:
+	RET
+
+// Se incrementan los meses
+INC_DISP_MES:
+	CPI		R29, 0x01				// Se revisa si ya llegó a mes 20
+	BREQ	REVISAR				
+	RJMP	SEGUIR_MESES
+
+REVISAR: 
+	CPI		R28, 0x02				// Se revisa si llegó al mes 13
+	BREQ	RESET_MESES
+	RJMP	SEGUIR_MESES
+
+SEGUIR_MESES: 
+	INC		R28						// Si ya pasaron los días, se incrementa el mes
+	CPI		R28, 0x0A				// Se compara para ver si ya es 10
+	BRNE	SALIR_MESES
+	RJMP	INC_DECENAS_MES
+
+SALIR_MESES: 
+	RET
+
+INC_DECENAS_MES: 
+	LDI		R28, 0x00				// Resetear unidades del mes
+	INC		R29						// Incrementar decenas mes
+	RET
+
+RESET_MESES: 
+	LDI		R29, 0x00
+	LDI		R28, 0x01				// Se reinician los meses al 1 (enero) 
+	RET
+
+VERIFY_DIAS:
+    // Cargar la dirección de la tabla DIAS_POR_MES
+    LDI     ZL, LOW(DIAS_POR_MES<<1)
+    LDI     ZH, HIGH(DIAS_POR_MES<<1)
+
+    // Calcular el índice del mes actual (mes - 1)
+	MOV		R6, R29					// Cargar decenas de mes
+	LSL		R6						// Correr a la izq -> X*2
+	MOV		R8, R6					// Se guarda el estado para poder sumar
+	LSL		R6						// Correr a la izq -> X*4
+	LSL		R6						// Correr a la izq -> X*8
+	ADD		R6, R8					// Se suman para -> X*10
+	MOV     R16, R28		        // Cargar unidades de mes
+
+    DEC     R16                     // Restar 1 (la tabla empieza en 0)
+    ADD     ZL, R16                 // Meter el índice a Z
+    LPM     R16, Z                  // Leer la cantidad de días del mes actual
+
+    // Comparar días actuales con días del mes
+    MOV     R10, R27		        // Cargar decenas de días
+    LSL	    R10                     // Convertir decenas a unidades (2 -> 20)
+								    // X*2 (Desplazar a la izquierda una vez)
+    MOV		R11, R10				// Guardamos el resultado temporalmente
+    LSL		R10						// X*4 (Otro desplazamiento a la izquierda)
+    LSL	    R10						// X*8 (Otro desplazamiento a la izquierda, ahora es X*8)
+    ADD		R10, R11				// (X*8) + (X*2) = X*10 
+    ADD     R10, R26		        // Sumar unidades de días (20 + 5 = 25)
+    CP      R10, R16                // Comparar con días del mes
+    BRLO    FIN_VERIFY_DIAS_MES  // Si es menor, no hacer nada
+    CALL    RESET_DIAS          // Si es igual o mayor, reiniciar días
+
+FIN_VERIFY_DIAS_MES:
+    RET
+
+DEC_DISP_MES:
+
 	RET
 
 // Rutina de NO interrupción 
 //----------------------------------------------------INCREMENTA DISPLAY------------------------------------------------
-
 CONTADOR: 
 	INC		R19						// Se aumenta el contador de unidades de minutos
 	CPI		R19, 0x0A				// Se compara para ver si ya sumó 
@@ -569,7 +701,7 @@ VERIFICAR_DIAS:
     MOV     R16, R28		        // Cargar unidades de mes
     DEC     R16                     // Restar 1 (la tabla empieza en 0)
     ADD     ZL, R16                 // Meter el índice a Z
-    LPM     R18, Z                  // Leer la cantidad de días del mes actual
+    LPM     R16, Z                  // Leer la cantidad de días del mes actual
 
     // Comparar días actuales con días del mes
     MOV     R10, R27		        // Cargar decenas de días
@@ -580,7 +712,7 @@ VERIFICAR_DIAS:
     LSL	    R10						// X*8 (Otro desplazamiento a la izquierda, ahora es X*8)
     ADD		R10, R11				// (X*8) + (X*2) = X*10 
     ADD     R10, R26		        // Sumar unidades de días (20 + 5 = 25)
-    CP      R10, R18                // Comparar con días del mes
+    CP      R10, R16                // Comparar con días del mes
     BRLO    FIN_VERIFICAR_DIAS_MES  // Si es menor, no hacer nada
     CALL    REINICIAR_DIAS          // Si es igual o mayor, reiniciar días
 
@@ -672,42 +804,40 @@ ISR_PCINT0:
 	PUSH	R7
 	IN		R7, SREG
 	PUSH	R7
-	LDI		R16, 0xD6
-	MOV		R6, R16
-	IN		R7, PINB			// Se lee el pin
-	MOV		R9, R7				// Copia el estado de botones
-	EOR		R9, R6				// Revisa si hubo cambio
+
+	IN		R9, PINB			// Se lee el pin
+	CP		R9, R18				// Se compara estado de los botones
+	BREQ	SALIR				// Si siguen siendo iguales, es porque no hubo cambio
+	MOV		R18, R9				// Copia el estado de botones
 
 	// PB4 -> Modo | PB2 -> Incrementa | PB1 -> Decrementa 
-	SBRC	R9, PB4				// Revisa activación de boton de modo
-	RJMP	ACT_MODO
-	SBRC	R9, PB2				// Revisa activación de botón inc
-	RJMP	ACT_INC
-	SBRC	R9, PB1				// Revisa activación de botón dec
-	RJMP	ACT_DEC
+	SBRS	R9, PB4				// Revisa activación de boton de modo
+	RJMP	CAMBIO_MODO
+	RJMP	CHECK_MODE
+
+CHECK_MODE:	
+	CPI		R17, 0				// Revisa en qué modo está
+	BREQ	ISR_RELOJ_NORMAL
+	CPI		R17, 1
+	BREQ	ISR_FECHA_NORMAL
+	CPI		R17, 2
+	BREQ	ISR_CONFIG_MIN
+	CPI		R17, 3
+	BREQ	ISR_CONFIG_HOR
+	CPI		R17, 4	
+	BREQ	ISR_CONFIG_MES
+	CPI		R17, 5
+	BREQ	ISR_CONFIG_DIA
+	CPI		R17, 6	
 	RJMP	SALIR
 
-ACT_MODO: 
-	SBIS	PINB, PB4			// Revisa si está presionado (0 -> apachado)
-	RJMP	MODOS				// Activa acción para PB0
-	RJMP	SALIR
-MODOS: 
+CAMBIO_MODO: 
 	INC		R17
 	CPI		R17, 0x09
-	BREQ	OVF_MODOS
+	BREQ	OVER_MODO
 	RJMP	SALIR
-OVF_MODOS: 
+OVER_MODO: 
 	LDI		R17, 0x00
-	RJMP	SALIR
-
-ACT_INC: 
-	SBIS	PINB, PB2			// Revisa si está presionado (0 -> apachado)
-	LDI		ACCION, 0x02		// Activa acción para PB0
-	RJMP	SALIR
-
-ACT_DEC: 
-	SBIS	PINB, PB1			// Revisa si está presionado (0 -> apachado)
-	LDI		ACCION, 0x03		// Activa acción para PB0
 	RJMP	SALIR
 
 // Rutina segura para salir -> reestablece valor de SREG
@@ -724,25 +854,47 @@ ISR_FECHA_NORMAL:
 	// El modo reloj normal, únicamente quiero que sume en reloj normal
 	RJMP	SALIR
 
-ISR_CONFIG_FECHA:
+ISR_CONFIG_MIN:
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
-	LDI		R16, 0x00
-	SBIS	PINB, PB0			// Como para configurar reloj, se tienen 4 botones
-	RJMP	INC_DISP1			// Solo se considera un botonazo a la vez
-			
-	SBIS	PINB, PB1			// Se revisan ambos botones
-	RJMP	DEC_DISP1			// Solo se considera un botonazo a la vez
-	
-	SBIS	PINB, PB2			// Como para configurar reloj, se tienen 4 botones 
-	RJMP	INC_DISP2			// Solo se considera un botonazo a la vez			
-	
-	SBIS	PINB, PB3			// Se revisan ambos botones
-	RJMP	DEC_DISP2			// Solo se considera un botonazo a la vez	
-	
-	MOV		ACCION, R16			// R8 -> ACCION guardará el valor de acción			
+	SBIS	PINB, PB2			// Revisa activación de botón inc
+	RJMP	ACT_INC
+	SBIS	PINB, PB1			// Revisa activación de botón dec
+	RJMP	ACT_DEC
 	RJMP	SALIR
 
+ISR_CONFIG_HOR:
+	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar
+	SBIS	PINB, PB2			// Revisa activación de botón inc
+	RJMP	ACT_INC
+	SBIS	PINB, PB1			// Revisa activación de botón dec
+	RJMP	ACT_DEC
+	RJMP	SALIR
 
+ACT_INC: 
+	SBIS	PINB, PB2			// Revisa si está presionado (0 -> apachado)
+	LDI		ACCION, 0x02		// Activa acción para PB0
+	RJMP	SALIR
+
+ACT_DEC: 
+	SBIS	PINB, PB1			// Revisa si está presionado (0 -> apachado)
+	LDI		ACCION, 0x03		// Activa acción para PB0
+	RJMP	SALIR
+
+ISR_CONFIG_MES: 
+	// El modo reloj normal, únicamente quiero que sume en reloj normal	
+	SBIS	PINB, PB2			// Revisa activación de botón inc
+	RJMP	ACT_INC
+	SBIS	PINB, PB1			// Revisa activación de botón dec
+	RJMP	ACT_DEC
+	RJMP	SALIR
+
+ISR_CONFIG_DIA: 
+	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar		
+	SBIS	PINB, PB2			// Revisa activación de botón inc
+	RJMP	ACT_INC
+	SBIS	PINB, PB1			// Revisa activación de botón dec
+	RJMP	ACT_DEC
+	RJMP	SALIR
 
 ISR_APAGAR_ALARMA: 
 	// El modo reloj normal, únicamente quiero que sume en reloj normal	
@@ -751,4 +903,3 @@ ISR_APAGAR_ALARMA:
 ISR_CONFIG_ALARMA: 
 	// Se revisan los pb, dependiendo de si se activan se sabrá qué acción realizar		
 	RJMP	SALIR
-
