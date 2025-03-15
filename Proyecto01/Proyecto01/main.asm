@@ -34,6 +34,7 @@
 
 TABLITA: .DB 0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B
 DIAS_POR_MES: .DB 32, 29, 32, 31, 32, 31, 32, 32, 31, 32, 31, 32
+MESES:		.DB	0x31, 0x28, 0x31, 0x30, 0x31, 0x30, 0x31, 0x31, 0x30, 0x31, 0x30, 0x31
 //DIAS_POR_MES: .DB 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
 
 START: 
@@ -139,8 +140,10 @@ MAIN:
 	CPI		R17, 5
 	BREQ	CALL_CONFIG_DIA_FECHA
 	CPI		R17, 6
-	BREQ	CALL_CONFIG_ALARMA
-	CPI		R17, 7 
+	BREQ	CALL_CONFIG_MIN_ALARMA
+	CPI		R17, 7
+	BREQ	CALL_CONFIG_HOR_ALARMA
+	CPI		R17, 8 
 	BREQ	CALL_APAGAR_ALARMA
 	
 	RJMP	MAIN
@@ -163,9 +166,13 @@ CALL_CONFIG_MES_FECHA:
 CALL_CONFIG_DIA_FECHA:
 	CALL	CONFIG_DIA
 	RJMP	MAIN
-CALL_CONFIG_ALARMA:
-	CALL	CONFIG_ALARM
+CALL_CONFIG_MIN_ALARMA:
+	CALL	CONFIG_MIN_ALARM
 	RJMP	MAIN
+CALL_CONFIG_HOR_ALARMA:
+	CALL	CONFIG_HOR_ALARM
+	RJMP	MAIN
+
 CALL_APAGAR_ALARMA:
 	CALL	ALARM_OFF
 	RJMP	MAIN
@@ -388,6 +395,13 @@ CONFIG_DIA:
 	RET
 
 CONFIG_ALARM:
+	SBI		PORTC, PC4
+	SBI		PORTC, PC5
+	SBI		PORTB, PB3
+	CPI		ACCION, 0x02
+	BREQ	INC_HOR
+	CPI		ACCION, 0x03
+	BREQ	DEC_HOR
 	RET
 ALARM_OFF:
 	RET
@@ -526,8 +540,8 @@ SEGUIR2:
 INC_DISP_DIA:
 	INC		R26						// Se incrementan las unidades de días
 	CPI		R26, 0x0A				// Se compara para saber si llegó a 10
-	BREQ	INC_DEC_DIAS		// Si es 10, se incrementan las decenas
-	CALL	VERIFY_DIAS			// Revisa que la cantidad de días coincidan con el mes
+	BREQ	INC_DEC_DIAS			// Si es 10, se incrementan las decenas
+	CALL	VERIFY_DIAS				// Revisa que la cantidad de días coincidan con el mes
 	RET
 
 INC_DEC_DIAS: 
@@ -542,7 +556,53 @@ RESET_DIAS:
 	LDI		R26, 0x01				// Se reinician los días a 1 (el mes empieza en dia 1) 
 	RET
 
+// Se decrementan los días
 DEC_DISP_DIA:
+	CPI		R27, 0x00				// Se revisan las decenas de los días
+	BREQ	DEC_UNIDADES_DIAS
+	RJMP	DEC_DEC_DIAS
+
+DEC_UNIDADES_DIAS: 
+	DEC		R26						// Se decrementan los días
+	CPI		R26, 0x00				// Se revisa si los días hicieron underflow
+	BREQ	AJUSTAR_MES				// Si hay underflow, se cargan los valores de días
+	RET
+
+DEC_DEC_DIAS:
+	DEC		R26						// Si las decenas aun no son 0, decrementan unidades
+	CPI		R26, 0xFF				// Se compara para saber si llegó a 0
+	BRNE	SALIR_DIAS				// Si aun no es 0, sigue
+	LDI		R26, 0x09				// Se carga 9 a las unidades
+	DEC		R27						// Se decrementan las decenas de días	
+	RET
+
+SALIR_DIAS:
+		RET
+
+AJUSTAR_MES: 
+	LDI     ZL, LOW(MESES<<1)
+    LDI     ZH, HIGH(MESES<<1)
+
+	MOV		R6, R29					// Cargar decenas de mes
+	LSL		R6						// Correr a la izq -> X*2
+	MOV		R8, R6					// Se guarda el estado para poder sumar
+	LSL		R6						// Correr a la izq -> X*4
+	LSL		R6						// Correr a la izq -> X*8
+	ADD		R6, R8					// Se suman para -> X*10 (Encontre decenas)
+	// Encontrar unidad del mes
+	MOV     R16, R28		        // Cargar unidades de mes
+	ADD		R16, R6					// Se suma la decena con la unidad del mes
+    DEC     R16                     // Restar 1 (la tabla empieza en 0)
+    ADD     ZL, R16                 // Meter el índice a Z 
+    LPM     R16, Z                  // Leer la cantidad de días del mes actual (Encuentro cuantos días hay)
+	
+	MOV		R27, R16				// Se copian los días a las decenas
+	LSR		R27
+	LSR		R27
+	LSR		R27
+	LSR		R27						// Se deja el valor de la decena como "unidad"
+	ANDI	R16, 0x0F				// Solo se guardan las unidades
+	MOV		R26, R16				// Se actualiza el valor de las unidades
 	RET
 
 // Se incrementan los meses
@@ -603,14 +663,37 @@ VERIFY_DIAS:
     ADD		R10, R11				// (X*8) + (X*2) = X*10 
     ADD     R10, R26		        // Sumar unidades de días (20 + 5 = 25)
     CP      R10, R16                // Comparar con días del mes
-    BRLO    FIN_VERIFY_DIAS_MES  // Si es menor, no hacer nada
-    CALL    RESET_DIAS          // Si es igual o mayor, reiniciar días
+    BRLO    FIN_VERIFY_DIAS_MES		// Si es menor, no hacer nada
+    CALL    RESET_DIAS				// Si es igual o mayor, reiniciar días
 
 FIN_VERIFY_DIAS_MES:
     RET
 
+// Se decrementan los meses
 DEC_DISP_MES:
+	CPI		R29, 0x00				// Revisa si las decenas de mes son 0
+	BREQ	REVISAR_UNI_MES			// Si sí, revisa si las unidades también son 0
+	RJMP	DEC_MESESITO			// Sino, decrementa 
 
+REVISAR_UNI_MES: 
+	CPI		R28, 0x01
+	BREQ	RESET_DECENAS_MES		// Si ambos son 0, entonces resetea meses
+	RJMP	DEC_MESESITO			// Sino, sigue decrementando unidades
+
+DEC_MESESITO: 
+	DEC		R28						// R28 decrementará
+	CPI		R28, 0xFF				// Si el contador llega a 0, reiniciar el contador
+	BRNE	SEGUIR3
+	LDI		R28, 0x09				// Si es 0, lo regresa a 9
+	DEC		R29						// Decrementa también las decenas
+	RET								// Regresa a main si ya decremento
+
+RESET_DECENAS_MES:
+	LDI		R28, 0x02
+	LDI		R29, 0x01				// Se corrigen valores para underflow		
+	RET	
+
+SEGUIR3:
 	RET
 
 // Rutina de NO interrupción 
@@ -675,16 +758,24 @@ REINICIAR_DIAS:
 	RET
 
 INCREMENTAR_MES: 
+	CPI		R29, 0x01
+	BREQ	REVISAR_MESES
+	RJMP	SEGUIR_MES
+
+REVISAR_MESES: 
+	CPI		R28, 0x02
+	BREQ	REINICIAR_MESES
+	RJMP	SEGUIR_MES
+
+SEGUIR_MES:
 	INC		R28						// Si ya pasaron los días, se incrementa el mes
 	CPI		R28, 0x0A				// Se compara para ver si ya es 10
-	BREQ	INCREMENTAR_DECENAS_MES
-	RET
+	BRNE	FIN_VERIFICAR_DIAS_MES
+	RJMP	INCREMENTAR_DECENAS_MES
 
 INCREMENTAR_DECENAS_MES: 
 	LDI		R28, 0x00				// Resetear unidades del mes
-	INC		R29						// Incrementar decenas mes
-	CPI		R29, 0x02				// No hay mas de 12 meses
-	BREQ	REINICIAR_MESES			// Si se cumplen los 12 meses, se reinicia
+	INC		R29						// Incrementar decenas mes 
 	RET
 
 REINICIAR_MESES: 
@@ -698,7 +789,14 @@ VERIFICAR_DIAS:
     LDI     ZH, HIGH(DIAS_POR_MES<<1)
 
     // Calcular el índice del mes actual (mes - 1)
-    MOV     R16, R28		        // Cargar unidades de mes
+    MOV		R6, R29					// Cargar decenas de mes
+	LSL		R6						// Correr a la izq -> X*2
+	MOV		R8, R6					// Se guarda el estado para poder sumar
+	LSL		R6						// Correr a la izq -> X*4
+	LSL		R6						// Correr a la izq -> X*8
+	ADD		R6, R8					// Se suman para -> X*10
+	MOV     R16, R28		        // Cargar unidades de mes
+	ADD		R16, R6
     DEC     R16                     // Restar 1 (la tabla empieza en 0)
     ADD     ZL, R16                 // Meter el índice a Z
     LPM     R16, Z                  // Leer la cantidad de días del mes actual
