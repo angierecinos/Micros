@@ -1159,7 +1159,7 @@ INIT_TMR1:
 
 // -------------------------------------------- Se inicia el TIMER0 ---------------------------------------------------
 INIT_TMR0:
-	// Cargar valor inicial en TCNT1 para desborde cada 100 ms
+	// Cargar valor inicial en TCNT1 para desborde cada 5 ms
 	LDI		R16, (1<<CS01) | (1<<CS00)
 	OUT		TCCR0B, R16					// Setear prescaler del TIMER 0 a 64
 	LDI		R16, VALOR_T0				// Indicar desde donde inicia -> desborde cada 5 ms
