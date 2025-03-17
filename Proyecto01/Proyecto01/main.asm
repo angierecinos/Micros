@@ -11,7 +11,7 @@
 ; Carnet : 23294
 ; Descripción: El código será un reloj con diferentes opciones
 
-// ----------------------------------------------- Encabezado ----------------------------------------------- //
+// ----------------------------------------------- Encabezado ----------------------------------------------- // 
 
 .include "M328PDEF.inc"				// Incluye definiciones del ATMega328
 .equ	VALOR_T1 = 0x1B1E
