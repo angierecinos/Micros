@@ -94,21 +94,19 @@ int main(void)
 // Interrupción por cambio en botones
 ISR(PCINT0_vect) { 
 	if (!(PINB & BTN_INC)) {
-		if (!verify_button) {				// Revisa si se está presionando
-			if (!(PINB & BTN_INC)) {		// Botón INC presionado
-				contador++;
-				verify_button = 1;			// Bloquea hasta que se suelte
-			}
-			else if (!(PINB & BTN_DEC)) {	// Botón DEC presionado
-				contador--;
-				verify_button = 1;			// Bloquea
-			}
-		}
-		else {
-			// Espera a que se suelten ambos botones
-			if ((PINB & BTN_INC) && (PINB & BTN_DEC)) {
-				verify_button = 0;			// Se puede volver a presionar
-			}
+		if (contador < 255)			// Revisa si aún no es 255
+		{
+			contador++;
+		} else {
+			contador = 0;			// Si hay overflow se regresa a 0
+		}	
+	}
+	if (!(PINB & BTN_DEC)) {
+		if (contador > 0)			// Revisa si ya pasó del valor mínimo
+		{
+			contador--;
+		} else {
+			contador = 255;			// Si hay underflow regresa a 255
 		}
 	}
 }
