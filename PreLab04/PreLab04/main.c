@@ -26,6 +26,8 @@
 uint8_t contador = 0;
 uint8_t contador_5ms;
 uint8_t verify_button = 0;
+uint8_t previous_state = 0xFF; 
+uint8_t current_state = 0xFF; 
 
 // Function prototypes
 void setup();
@@ -72,6 +74,7 @@ int main(void)
 	/* Replace with your application code */
 	while (1)
 	{
+		
 		// Encender el transistor para mostrar el contador
 		PORTC |= MOST_CONT;  // Enciende el transistor en PC2 (para muestreo de contador)
 		
@@ -92,21 +95,25 @@ int main(void)
 }*/
 
 // Interrupción por cambio en botones
-ISR(PCINT0_vect) { 
-	if (!(PINB & BTN_INC)) {
+ISR(PCINT0_vect) {
+	current_state = PINB;			// Permite verificar el estado de los botones
+	
+	if ((!(previous_state & BTN_INC) && (current_state & BTN_INC))) {
 		if (contador < 255)			// Revisa si aún no es 255
 		{
 			contador++;
-		} else {
+			} else {
 			contador = 0;			// Si hay overflow se regresa a 0
-		}	
+		}
 	}
-	if (!(PINB & BTN_DEC)) {
+	if ((!(previous_state & BTN_DEC) && (current_state & BTN_DEC))) {
 		if (contador > 0)			// Revisa si ya pasó del valor mínimo
 		{
 			contador--;
-		} else {
+			} else {
 			contador = 255;			// Si hay underflow regresa a 255
 		}
 	}
+	previous_state = current_state;	// Actualiza el valor del estado anterior
 }
+
