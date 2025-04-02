@@ -1,5 +1,5 @@
 /*
- * PreLab04.c
+ * Lab04.c
  ;
  ;
  ; Universidad del Valle de Guatemala
@@ -24,15 +24,20 @@
 #define MOST_CONT	(1 << PC2)	// Control de muestreo contador
 
 uint8_t contador = 0;
-uint8_t contador_5ms;
+uint8_t contador_5ms = 0;
 uint8_t verify_button = 0;
 uint8_t previous_state = 0xFF; 
 uint8_t current_state = 0xFF; 
+uint8_t tabla_7seg[] = {0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x77, 0x1F, 0x4E, 0x3D, 0x4F, 0x47};
+uint8_t lectura_adc; 
+uint8_t dig_1;
+uint8_t dig_2; 
 
 // Function prototypes
 void setup();
 void initTMR0(); 
-
+void initADC();
+void actualizarHexDisplay(); 
 
 // Non-interupt
 void setup ()
@@ -57,7 +62,10 @@ void setup ()
 	
 	UCSR0B	=	0x00;										// Apaga serial
 	
-	//initTMR0();												// Iniciar timer
+	initADC();
+	initTMR0();												// Iniciar timer
+	
+	ADCSRA |= (1 << ADSC);
 	
 	sei();
 }
@@ -67,53 +75,84 @@ void initTMR0()
 	TCCR0A	=	0;	TCCR0B |=	(1 << CS01) | (1 << CS00);		// Setear prescaler a 64	TCNT0	=	178;							// Cargar valor para delay de 5ms	TIMSK0	=	(1 << TOIE0);
 }
 
+void initADC()
+{
+	ADMUX	= 0;
+	ADMUX	|= (1<<REFS0);	//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
+	
+	ADMUX	|= (1 << ADLAR);					// Justificación a la izquierda
+	ADMUX	|= (1 << MUX1) | (1<< MUX0);		// Seleccionar el ADC6
+	ADCSRA	= 0;
+	ADCSRA	|= (1 << ADPS1) | (1 << ADPS0);		// Frecuencia de muestreo de 125kHz
+	ADCSRA	|= (1 << ADIE);						// Hab interrupción
+	ADCSRA	|= (1 << ADEN);		
+}
+
+void actualizarHexDisplay() 
+{
+	
+	dig_1 = (lectura_adc >> 4) & 0x0F;  // Nibble superior (0-F)
+	dig_2 = lectura_adc & 0x0F;         // Nibble inferior (0-F)
+}
+
 // Main
 int main(void)
 {
 	setup();
-	/* Replace with your application code */
 	while (1)
 	{
+	switch(contador_5ms) {
+		case 0:
+		PORTC &= ~((1 << DISP1) | (1 << DISP2) | (1 << MOST_CONT));
+		PORTC |= MOST_CONT;
+		PORTD = contador;
+		break;
 		
-		// Encender el transistor para mostrar el contador
-		PORTC |= MOST_CONT;  // Enciende el transistor en PC2 (para muestreo de contador)
+		case 1:
+		PORTC &= ~((1 << DISP1) | (1 << DISP2) | (1 << MOST_CONT));
+		PORTC |= DISP1;
+		PORTD = tabla_7seg[dig_1];
+		break;
 		
-		// Mostrar el valor del contador en PORTD
-		PORTD = contador;  // Muestra el valor del contador en los 8 bits de PORTD
+		case 2:
+		PORTC &= ~((1 << DISP1) | (1 << DISP2) | (1 << MOST_CONT));
+		PORTC |= DISP2;
+		PORTD = tabla_7seg[dig_2];
+		break;
+		}		
 	}
+}
+
+
+ISR(PCINT0_vect)
+{
+	current_state = PINB;			// Permite verificar el estado de los botones
+	
+	if ((!(previous_state & BTN_INC) && (current_state & BTN_INC))) 
+	{
+		contador++;
+	}
+	if ((!(previous_state & BTN_DEC) && (current_state & BTN_DEC)))
+	{
+		contador--;
+	} previous_state = current_state;	// Actualiza el valor del estado anterior
 }
 
 //------------------------ Interrupt routines ------------------------
-/*ISR(TIMER0_OVF_vect)
+ISR(TIMER0_OVF_vect)
 {
-	TCNT0 = 178;
+	TCNT0 = 240;
 	contador_5ms++;
-	if (contador_5ms == 50)
-	{
-		PORTB++;		PORTB &= 0x0F;		contador_5ms = 0;
+	if (contador_5ms == 4)
+	{		contador_5ms = 0;
+		
 	}
-}*/
-
-// Interrupción por cambio en botones
-ISR(PCINT0_vect) {
-	current_state = PINB;			// Permite verificar el estado de los botones
 	
-	if (!((previous_state & BTN_INC) && (current_state & BTN_INC))) {
-		if (contador < 255)			// Revisa si aún no es 255
-		{
-			contador++;
-		} else {
-			contador = 0;			// Si hay overflow se regresa a 0
-		}
-	}
-	if (!((previous_state & BTN_DEC) && (current_state & BTN_DEC))) {
-		if (contador > 0)			// Revisa si ya pasó del valor mínimo
-		{
-			contador--;
-		} else {
-			contador = 255;			// Si hay underflow regresa a 255
-		}
-	}
-	previous_state = current_state;	// Actualiza el valor del estado anterior
 }
 
+ISR(ADC_vect)
+{
+	lectura_adc	= ADCH;
+	actualizarHexDisplay();
+	ADCSRA |= (1 << ADSC);
+}
