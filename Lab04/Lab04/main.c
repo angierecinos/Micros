@@ -16,19 +16,20 @@
 #define F_CPU 16000000
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
-#define BTN_INC		(1 << PB0)  // Botón de incremento
-#define BTN_DEC		(1 << PB1)  // Botón de decremento
-#define DISP1		(1 << PC0)  // Control de primer display
-#define DISP2		(1 << PC1)  // Control de segundo display
-#define MOST_CONT	(1 << PC2)	// Control de muestreo contador
+#define BTN_INC		(1 << PORTB0)  // Botón de incremento
+#define BTN_DEC		(1 << PORTB1)  // Botón de decremento
+#define DISP1		(1 << PORTC0)  // Control de primer display
+#define DISP2		(1 << PORTC1)  // Control de segundo display
+#define MOST_CONT	(1 << PORTC2)	// Control de muestreo contador
 
 uint8_t contador = 0;
 uint8_t contador_5ms = 0;
 uint8_t verify_button = 0;
 uint8_t previous_state = 0xFF; 
 uint8_t current_state = 0xFF; 
-uint8_t tabla_7seg[16] = {0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x77, 0x1F, 0x4E, 0x3D, 0x4F, 0x47};
+int tabla_7seg[16] = {0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x77, 0x1F, 0x4E, 0x3D, 0x4F, 0x47};
 uint8_t lectura_adc; 
 uint8_t dig_1;
 uint8_t dig_2; 
@@ -37,7 +38,7 @@ uint8_t dig_2;
 void setup();
 void initTMR0(); 
 void initADC();
-void actualizarHexDisplay(); 
+
 
 // Non-interupt
 void setup ()
@@ -72,27 +73,20 @@ void setup ()
 
 void initTMR0()
 {
-	TCCR0A	=	0;	TCCR0B |=	(1 << CS01) | (1 << CS00);		// Setear prescaler a 64	TCNT0	=	178;							// Cargar valor para delay de 5ms	TIMSK0	=	(1 << TOIE0);
+	TCCR0A	=	0;	TCCR0B |=	(1 << CS01) | (1 << CS00);		// Setear prescaler a 64	TCNT0	=	200;							// Cargar valor para delay de 5ms	TIMSK0	=	(1 << TOIE0);
 }
 
 void initADC()
 {
 	ADMUX	= 0;
-	ADMUX	|= (1<<REFS0);	//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
+	ADMUX	|= (1 << REFS0);	//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
 	
 	ADMUX	|= (1 << ADLAR);					// Justificación a la izquierda
-	ADMUX	|= (1 << MUX1) | (1<< MUX0);		// Seleccionar el ADC6
+	ADMUX	|= (1 << MUX1) | (1<< MUX0);		// Seleccionar el ADC3
 	ADCSRA	= 0;
 	ADCSRA	|= (1 << ADPS1) | (1 << ADPS0);		// Frecuencia de muestreo de 125kHz
 	ADCSRA	|= (1 << ADIE);						// Hab interrupción
 	ADCSRA	|= (1 << ADEN);		
-}
-
-void actualizarHexDisplay() 
-{
-	
-	dig_1 = (lectura_adc >> 4) & 0x0F;  // Nibble superior (0-F)
-	dig_2 = lectura_adc & 0x0F;         // Nibble inferior (0-F)
 }
 
 // Main
@@ -101,58 +95,60 @@ int main(void)
 	setup();
 	while (1)
 	{
-	switch(contador_5ms) {
-		case 0:
-		PORTC &= ~((1 << DISP1) | (1 << DISP2) | (1 << MOST_CONT));
-		PORTC |= MOST_CONT;
-		PORTD = contador;
-		break;
-		
-		case 1:
-		PORTC &= ~((1 << DISP1) | (1 << DISP2) | (1 << MOST_CONT));
-		PORTC |= DISP1;
-		PORTD = tabla_7seg[dig_1];
-		break;
-		
-		case 2:
-		PORTC &= ~((1 << DISP1) | (1 << DISP2) | (1 << MOST_CONT));
-		PORTC |= DISP2;
-		PORTD = tabla_7seg[dig_2];
-		break;
-		}		
 	}
 }
 
 
-ISR(PCINT0_vect)
-{
-	current_state = PINB;			// Permite verificar el estado de los botones
-	
-	if ((!(previous_state & BTN_INC) && (current_state & BTN_INC))) 
-	{
+ISR(PCINT0_vect){
+	if (!(PINB & (1 << PORTB0))) {
 		contador++;
+		
 	}
-	if ((!(previous_state & BTN_DEC) && (current_state & BTN_DEC)))
-	{
+	if (!(PINB & (1 << PORTB1))) {  // Si PB1 está presionado
 		contador--;
-	} previous_state = current_state;	// Actualiza el valor del estado anterior
+	}
 }
 
 //------------------------ Interrupt routines ------------------------
 ISR(TIMER0_OVF_vect)
 {
-	TCNT0 = 240;
+	TCNT0 = 200;
+	
 	contador_5ms++;
-	if (contador_5ms == 4)
-	{		contador_5ms = 0;
-		
+	if (contador_5ms > 2){
+		contador_5ms = 0;
 	}
 	
+	
+	switch(contador_5ms) {
+		case 0:
+			PORTC &= ~(DISP1 | DISP2 | MOST_CONT);
+			PORTD = contador;
+			PORTC |= MOST_CONT;
+			break;
+		
+		case 1:
+			PORTC &= ~(DISP1 | DISP2 | MOST_CONT);
+			PORTD = tabla_7seg[dig_1];
+			PORTC |= DISP1;
+			break;
+		
+		case 2:
+			PORTC &= ~(DISP1 | DISP2 | MOST_CONT);
+			PORTD = tabla_7seg[dig_2];
+			PORTC |= DISP2;
+			break;
+		
+		default:
+			break;
+	}
 }
+
 
 ISR(ADC_vect)
 {
 	lectura_adc	= ADCH;
-	actualizarHexDisplay();
+	dig_2 = (lectura_adc >> 4) & 0x0F;  
+	dig_1 = lectura_adc & 0x0F;         
 	ADCSRA |= (1 << ADSC);
 }
