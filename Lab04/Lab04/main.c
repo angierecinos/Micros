@@ -71,6 +71,15 @@ void setup ()
 	sei();
 }
 
+// Main
+int main(void)
+{
+	setup();
+	while (1)
+	{
+	}
+}
+
 void initTMR0()
 {
 	TCCR0A	=	0;	TCCR0B |=	(1 << CS01) | (1 << CS00);		// Setear prescaler a 64	TCNT0	=	200;							// Cargar valor para delay de 5ms	TIMSK0	=	(1 << TOIE0);
@@ -88,16 +97,6 @@ void initADC()
 	ADCSRA	|= (1 << ADIE);						// Hab interrupción
 	ADCSRA	|= (1 << ADEN);		
 }
-
-// Main
-int main(void)
-{
-	setup();
-	while (1)
-	{
-	}
-}
-
 
 ISR(PCINT0_vect){
 	if (!(PINB & (1 << PORTB0))) {
@@ -141,6 +140,11 @@ ISR(TIMER0_OVF_vect)
 		
 		default:
 			break;
+	}
+	if (lectura_adc >= contador){
+		PORTC |= (1 << PORTC5);
+	}else{
+		PORTC &= ~(1 << PORTC5);
 	}
 }
 
