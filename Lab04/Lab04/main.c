@@ -26,9 +26,6 @@
 
 uint8_t contador = 0;
 uint8_t contador_5ms = 0;
-uint8_t verify_button = 0;
-uint8_t previous_state = 0xFF; 
-uint8_t current_state = 0xFF; 
 int tabla_7seg[16] = {0x7E, 0x30, 0x6D, 0x79, 0x33, 0x5B, 0X5F, 0x70, 0x7F, 0X7B, 0x77, 0x1F, 0x4E, 0x3D, 0x4F, 0x47};
 uint8_t lectura_adc; 
 uint8_t dig_1;
@@ -82,13 +79,13 @@ int main(void)
 
 void initTMR0()
 {
-	TCCR0A	=	0;	TCCR0B |=	(1 << CS01) | (1 << CS00);		// Setear prescaler a 64	TCNT0	=	200;							// Cargar valor para delay de 5ms	TIMSK0	=	(1 << TOIE0);
+	TCCR0A	=	0;	TCCR0B |=	(1 << CS01) | (1 << CS00);		// Setear prescaler a 64	TCNT0	=	178;							// Cargar valor para delay de 5ms	TIMSK0	=	(1 << TOIE0);
 }
 
 void initADC()
 {
 	ADMUX	= 0;
-	ADMUX	|= (1 << REFS0);	//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
+	ADMUX	|= (1 << REFS0);					//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
 	
 	ADMUX	|= (1 << ADLAR);					// Justificación a la izquierda
 	ADMUX	|= (1 << MUX1) | (1<< MUX0);		// Seleccionar el ADC3
@@ -98,27 +95,29 @@ void initADC()
 	ADCSRA	|= (1 << ADEN);		
 }
 
-ISR(PCINT0_vect){
-	if (!(PINB & (1 << PORTB0))) {
-		contador++;
-		
+ISR(PCINT0_vect)
+{
+	// Se revisa PB0 y se incrementa
+	if (!(PINB & (1 << PORTB0))){
+		contador++; 
 	}
-	if (!(PINB & (1 << PORTB1))) {  // Si PB1 está presionado
-		contador--;
+	// Se revisa PB1 y se decrementa
+	if (!(PINB & (1 << PORTB1))){
+		contador--; 
 	}
 }
 
 //------------------------ Interrupt routines ------------------------
 ISR(TIMER0_OVF_vect)
 {
-	TCNT0 = 200;
-	
+	TCNT0 = 178;
+	// Se usa timer para multiplexar
 	contador_5ms++;
 	if (contador_5ms > 2){
 		contador_5ms = 0;
 	}
 	
-	
+	// En un switchcase se decide qué mostrará
 	switch(contador_5ms) {
 		case 0:
 			PORTC &= ~(DISP1 | DISP2 | MOST_CONT);
@@ -141,7 +140,8 @@ ISR(TIMER0_OVF_vect)
 		default:
 			break;
 	}
-	if (lectura_adc >= contador){
+	// Hace la comparación para detectar si ADC > que contador
+	if (lectura_adc > contador){
 		PORTC |= (1 << PORTC5);
 	}else{
 		PORTC &= ~(1 << PORTC5);
@@ -151,6 +151,7 @@ ISR(TIMER0_OVF_vect)
 
 ISR(ADC_vect)
 {
+	// Guarda el valor de ADCH para mostrarlo
 	lectura_adc	= ADCH;
 	dig_2 = (lectura_adc >> 4) & 0x0F;  
 	dig_1 = lectura_adc & 0x0F;         
