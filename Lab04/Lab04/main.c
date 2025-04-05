@@ -23,6 +23,7 @@
 #define DISP1		(1 << PORTC0)  // Control de primer display
 #define DISP2		(1 << PORTC1)  // Control de segundo display
 #define MOST_CONT	(1 << PORTC2)	// Control de muestreo contador
+#define ALARMA		(1 << PORTC5)	// Alarma para comparacion
 
 uint8_t contador = 0;
 uint8_t contador_5ms = 0;
@@ -49,8 +50,8 @@ void setup ()
 	DDRB	&= ~(BTN_INC | BTN_DEC);						// PB0 y PB1 como entradas
 	PORTB	|=	(BTN_INC | BTN_DEC);						// Activar pull-ups internos
 
-	DDRC	|=	(DISP1 | DISP2 | MOST_CONT);				// PC0, PC1 y PC2 como salidas
-	PORTC	&= ~(DISP1 | DISP2 | MOST_CONT);				// Apagar displays y control de muestreo
+	DDRC	|=	(DISP1 | DISP2 | MOST_CONT | ALARMA);				// PC0, PC1 y PC2 como salidas
+	PORTC	&= ~(DISP1 | DISP2 | MOST_CONT | ALARMA);				// Apagar displays y control de muestreo
 
 	DDRD	=	0xFF;										// PORTD como salida para los segmentos del display
 	
