@@ -16,8 +16,6 @@
  #include "SERVO/SERVO.h"
  
  // Configuración de los canales de ADC
- uint8_t adc_pins[8] = {0, 1, 2, 3, 4, 5, 6, 7};  // Pines de 0 a 7
- uint8_t dutyCycle = 101; 
  uint8_t lectura_adc; 
  uint16_t adc_value;
  uint16_t pulse;
