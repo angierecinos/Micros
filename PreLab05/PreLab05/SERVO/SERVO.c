@@ -16,7 +16,8 @@
 # include "SERVO.h"
 void servo_positionA(uint16_t angulo)
 {
-	OCR1A =  71 + (angulo*(312-71)/180); //map(pulse, 0, 1023, 0, 250); //pulse; 
+	OCR1A =  71 + (angulo*(312-71)/180); 
+	//OCR1A =  125 + (angulo*(125UL)/180); //map(pulse, 0, 1023, 0, 250); //pulse; 
 }
 
 void servo_positionB(uint16_t angulo)
@@ -26,7 +27,7 @@ void servo_positionB(uint16_t angulo)
 
 uint16_t mapeoADCtoPulse(uint16_t adc_val)
 {
-	return ((adc_val * 180) / 250);		// Escalar 0-255 a 125-250
+	return ((adc_val * 180) / 255);		// Escalar 0-255 a 125-250
 }
 
 void initADC()
