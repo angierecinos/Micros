@@ -123,15 +123,22 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="PWM0\PWM0.c">
+    <Compile Include="PWM1\PWM1.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="PWM0\PWM0.h">
+    <Compile Include="PWM1\PWM1.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="SERVO\SERVO.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="SERVO\SERVO.h">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="PWM0" />
+    <Folder Include="SERVO" />
+    <Folder Include="PWM1" />
   </ItemGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
 </Project>
