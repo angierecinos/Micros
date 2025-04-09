@@ -13,13 +13,17 @@
  #include <avr/interrupt.h>
  #include <util/delay.h>
  #include "PWM1/PWM1.h"
+ #include "PWM2/PWM2.h"
  #include "SERVO/SERVO.h"
  
  // Configuración de los canales de ADC
  uint8_t lectura_adc; 
+ uint8_t lectura_adc2; 
  uint16_t adc_value;
  uint16_t pulse;
- 
+ uint16_t pulse2;
+ uint8_t pin_adc = 0; 
+ uint8_t pin = 0; 
  /****************************************/
  // Function prototypes
  void setup();
@@ -32,6 +36,10 @@
 	 setup();
 	 while (1)
 	 {
+		servo_positionA(pulse);
+		//_delay_ms(10);
+		servo_position2A(pulse2);
+		//_delay_ms(10);
 		//adc_value = ADC_read(0);					// Leer del "pin" 0
 		//pulse = mapeoADCtoPulse(adc_value);			// Escalar a 125–250
 		//servo_positionA(pulse);						// Actualizar servo
@@ -54,6 +62,7 @@
 	 CLKPR	= (1 << CLKPS2);					// Setea presc a 16 para 1MHz
 	 
 	 initPWM1A(non_invert, 8);					// No invertido y prescaler de 8
+	 initPWM2A(non_invert, 8);					// No invertido y prescaler de 8
 	 initADC(); 
 	 
 	 DDRB  |= (1 << PORTB1) | (1 << PORTB2);	// En el timer1 pines PB1 | PB2
@@ -67,9 +76,25 @@
  // Interrupt routines
 ISR(ADC_vect)
 {
-	lectura_adc	= ADCH;									// Guarda el valor de ADC
-	pulse = mapeoADCtoPulse(lectura_adc);
-	servo_positionA(pulse);	
+	pin = (ADMUX & 0x03); 
+	lectura_adc = ADCH; 
+	switch(pin){
+		case 3: 
+			pulse = mapeoADCtoPulse(lectura_adc);
+			
+			ADMUX	|= (1 << MUX1);		// Seleccionar el ADC3
+			break; 
+		case 2: 
+			//ADMUX	|= (1<< MUX1);								// Seleccionar el ADC2
+			//lectura_adc2 = ADCH; 
+			pulse2 = mapeoADCtoPulse(lectura_adc);
+			
+			ADMUX	|= (1 << MUX1) | (1<< MUX0);		// Seleccionar el ADC3
+			break;
+		default: 
+			break;  
+	}
+	
 	ADCSRA |= (1 << ADSC);								// Inicia conversión otra vez
 }
 

@@ -25,6 +25,12 @@ void servo_positionB(uint16_t angulo)
 	OCR1B =  71 + (angulo*(312-71)/180);
 }
 
+void servo_position2A(uint16_t angulo)
+{
+	OCR2A =  71 + (angulo*(312-71)/180);
+	//OCR1A =  125 + (angulo*(125UL)/180); //map(pulse, 0, 1023, 0, 250); //pulse;
+}
+
 uint16_t mapeoADCtoPulse(uint16_t adc_val)
 {
 	return ((adc_val * 180) / 255);		// Escalar 0-255 a 125-250
