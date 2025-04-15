@@ -7,7 +7,7 @@
 #include "PWM2.h"
 void initPWM2A(uint8_t invertido, uint16_t prescaler)
 {
-	DDRB	|= (1 << DDB3); // Como salida PD6
+	DDRB	|= (1 << DDB3); // Como salida PB3
 	TCCR2A	&= ~((1 << COM2A1) | (1<<COM2A0));
 	
 	if (invertido == invert)

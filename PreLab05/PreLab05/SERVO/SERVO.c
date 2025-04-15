@@ -16,7 +16,9 @@
 # include "SERVO.h"
 void servo_positionA(uint16_t angulo)
 {
-	OCR1A =  71 + (angulo*(312-71)/180); 
+	//OCR1A =  71 + (angulo*(312-71)/180); 
+	//if(angulo > 180) angulo = 180;
+	OCR1A = 71 + (angulo * (312-71) / 180);
 	//OCR1A =  125 + (angulo*(125UL)/180); //map(pulse, 0, 1023, 0, 250); //pulse; 
 }
 
@@ -27,11 +29,18 @@ void servo_positionB(uint16_t angulo)
 
 void servo_position2A(uint16_t angulo)
 {
-	OCR2A =  71 + (angulo*(312-71)/180);
+	if(angulo > 180) angulo = 180;
+	OCR2A = 2 + (angulo * (50-2) / 180);
+	//OCR2A =  71 + (angulo*(312-71)/180);
 	//OCR1A =  125 + (angulo*(125UL)/180); //map(pulse, 0, 1023, 0, 250); //pulse;
 }
 
 uint16_t mapeoADCtoPulse(uint16_t adc_val)
+{
+	return ((adc_val * 180) / 255);		// Escalar 0-255 a 125-250
+}
+
+uint16_t mapeoADCtoPulse2(uint16_t adc_val)
 {
 	return ((adc_val * 180) / 255);		// Escalar 0-255 a 125-250
 }
@@ -42,7 +51,7 @@ void initADC()
 	ADMUX	|= (1 << REFS0);					//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
 	
 	ADMUX	|= (1 << ADLAR);					// Justificación a la izquierda
-	ADMUX	|= (1 << MUX1) | (1<< MUX0);		// Seleccionar el ADC3
+	ADMUX	|= (1 << MUX1); //| (1<< MUX0);		// Seleccionar el ADC2
 	ADCSRA	= 0;
 	ADCSRA	|= (1 << ADPS1) | (1 << ADPS0);		// Frecuencia de muestreo de 125kHz
 	ADCSRA	|= (1 << ADIE);						// Hab interrupción

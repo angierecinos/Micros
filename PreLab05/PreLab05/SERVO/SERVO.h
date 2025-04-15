@@ -14,6 +14,7 @@
 void initADC();
 
 uint16_t mapeoADCtoPulse(uint16_t adc_val); 
+uint16_t mapeoADCtoPulse2(uint16_t adc_val); 
 
 void servo_positionA(uint16_t pulse);
 void servo_positionB(uint16_t pulse);
