@@ -123,6 +123,12 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="PWM0\PWM0.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="PWM0\PWM0.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="PWM1\PWM1.c">
       <SubType>compile</SubType>
     </Compile>
@@ -143,6 +149,7 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="PWM0" />
     <Folder Include="PWM2" />
     <Folder Include="SERVO" />
     <Folder Include="PWM1" />
