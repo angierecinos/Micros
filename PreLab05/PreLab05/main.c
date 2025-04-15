@@ -23,7 +23,7 @@
  uint16_t adc_value;
  uint16_t pulse;
  uint16_t pulse2;
- uint8_t PWM_TOP = 127; //ciclo de trabajo al 50%
+ uint8_t TOP = 127; //ciclo de trabajo al 50%
  uint8_t pin = 0; 
  uint8_t eleccion_adc =0; 
  uint8_t counter = 0;
@@ -103,9 +103,9 @@ ISR(ADC_vect)
 			break;
 		 case 0: 
 			ADMUX	&= 0xF0;
-			//OCR0A = 127;						// Hace que el valor del pwm sea el ADC
-			manual = (lectura_adc * PWM_TOP) / 255;
-			ADMUX  |= (1 << MUX1); // | (1<< MUX0);						// Selecciona al ADC2
+			//OCR0A = lectura_adc;								// Hace que el valor del pwm sea el ADC
+			manual = (lectura_adc * TOP) / 255;
+			ADMUX  |= (1 << MUX1); // | (1<< MUX0);				// Selecciona al ADC2
 			break; 
 			
 		default: 
@@ -117,21 +117,22 @@ ISR(ADC_vect)
 
 /*ISR(TIMER0_COMPA_vect)
 {
-		//PORTD &= ~(1 << PORTD6);			// Apaga el LED
+		PORTD &= ~(1 << PORTD7);			// Apaga el LED
 }*/
 
 
 ISR(TIMER0_OVF_vect)
 {
+		//PORTD |= (1 << PORTD7);
 		counter++;
 		if (counter >= manual){
-			PORTD &= ~(1 << PORTD7);
-			//PORTD |= (1 << PORTD7);  // LED OFF
+			PORTD &= ~(1 << PORTD7);		// Apaga el led
+			  
 		}
 		else{
-			PORTD |= (1 << PORTD7); // LED ON
+			PORTD |= (1 << PORTD7);			// Enciende el led
 		}
-		if (counter >= PWM_TOP){
+		if (counter >= TOP){
 			counter = 0;
 		}
 }
