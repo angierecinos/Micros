@@ -2,7 +2,7 @@
  * Laboratorio06.c
  *
  * Created: 17/04/2025 11:48:01
- * Author : Usuario
+ * Author : Angie
  * Description: Se utiliza comunicación serial
  */ 
 
@@ -74,11 +74,7 @@ ISR(USART_RX_vect)
 {
 	char temporal = UDR0;
 	writeChar(temporal);
+	PORTB = temporal;
 }
 
 // NON - Interrupt
-
-
-
-
-
