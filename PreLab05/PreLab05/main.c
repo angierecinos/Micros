@@ -3,7 +3,7 @@
  *
  * Created: 5/04/2025 09:04:06
  * Author : Angie Recinos
- * Description:
+ * Description: Se controlan 2 servos y un led variable
  */
 
  /****************************************/
@@ -130,9 +130,9 @@ ISR(TIMER0_OVF_vect)
 			  
 		}
 		else{
-			PORTD |= (1 << PORTD7);			// Enciende el led
+			PORTD |= (1 << PORTD7);			// Enciende el led (cuando counter es 0)
 		}
-		if (counter >= TOP){
+		if (counter >= TOP){				// Cuando counter llega al valor del ciclo, se reinicia
 			counter = 0;
 		}
 }
