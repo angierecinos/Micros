@@ -11,6 +11,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+char temporalB; 
+char temporalD;
 //*******************************************
 // Function prototypes
 void setup();
@@ -39,6 +41,7 @@ void setup()
 {
 	cli();
 	DDRB = 0xFF;						// Se setea puerto B como salida 
+	DDRD |=  (1 << DDD7) | (1 << DDD6);
 	PORTB = 0x00;						// Apaga la salida
 	initUART();
 	sei();
@@ -74,7 +77,10 @@ ISR(USART_RX_vect)
 {
 	char temporal = UDR0;
 	writeChar(temporal);
-	PORTB = temporal;
+	temporalB = temporal & 0x3F;
+	temporalD = (temporal & 0xC0);
+	PORTD = temporalD;
+	PORTB = temporalB;
 }
 
 // NON - Interrupt
