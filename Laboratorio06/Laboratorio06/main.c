@@ -18,6 +18,7 @@ char temporalD;
 void setup();
 void initUART(); 
 void writeChar(char caracter); 
+void sendString(char* texto); 
 
 //*******************************************
 // Main Function
@@ -29,6 +30,7 @@ int main(void)
 	writeChar('G');
 	writeChar('I');
 	writeChar('E');
+	sendString(" Me salio?");
 	while (1)
 	{
 	}
@@ -71,6 +73,17 @@ void writeChar(char caracter)
 	UDR0 = caracter; 
 	
 }
+
+void sendString(char* texto)
+{
+	// Se hace siempre que indice sea diferente de un valor "nulo"
+	// Aumenta el valor de indice
+	for (uint8_t indice = 0; *(texto + indice) != '\0'; indice++)
+	{
+		writeChar(texto[indice]);
+	}
+}
+
 //*******************************************
 // Interrupt routines
 ISR(USART_RX_vect)
