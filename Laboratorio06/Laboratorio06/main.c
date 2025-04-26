@@ -13,26 +13,40 @@
 
 char temporalB; 
 char temporalD;
+uint8_t option = 0;
+uint8_t menu_flag = 1; 
+uint8_t adc_value = 0; 
+
 //*******************************************
 // Function prototypes
 void setup();
 void initUART(); 
+void initADC();
 void writeChar(char caracter); 
 void sendString(char* texto); 
+void showMenu();
+void processASCII(char ascii); 
 
 //*******************************************
 // Main Function
 int main(void)
 {
 	setup();
-	writeChar('A');
+	//showMenu();
+	/*writeChar('A');
 	writeChar('N');
 	writeChar('G');
 	writeChar('I');
-	writeChar('E');
-	sendString(" Me salio?");
+	writeChar('E');*/
+	//sendString(" Me salio?");
 	while (1)
 	{
+		// Si se activa la bandera, se muestra el menú
+		// Se desactiva para ingresar la opción 
+		if(menu_flag) {
+			showMenu();
+			menu_flag = 0;
+		}
 	}
 }
 
@@ -46,6 +60,7 @@ void setup()
 	DDRD |=  (1 << DDD7) | (1 << DDD6);
 	PORTB = 0x00;						// Apaga la salida
 	initUART();
+	initADC();
 	sei();
 }
 
@@ -63,6 +78,20 @@ void initUART()
 	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); 
 	// Valor UBRR = 103 -> 9600 @ 16MHz 
 	UBRR0 = 103; 
+}
+
+void initADC()
+{
+	ADMUX	= 0;
+	ADMUX	|= (1 << REFS0);					//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
+	
+	ADMUX	|= (1 << ADLAR);					// Justificación a la izquierda
+	ADMUX	|= (1 << MUX1); //| (1<< MUX0);		// Seleccionar el ADC2
+	ADCSRA	= 0;
+	ADCSRA	|= (1 << ADPS1) | (1 << ADPS0);		// Frecuencia de muestreo de 125kHz
+	ADCSRA	|= (1 << ADIE);						// Hab interrupción
+	ADCSRA	|= (1 << ADEN);
+	
 }
 
 void writeChar(char caracter)
@@ -84,16 +113,82 @@ void sendString(char* texto)
 	}
 }
 
+void showMenu()
+{
+	sendString("\r\n*** MENU ***\r\n");
+	sendString("1: Leer Potenciómetro\r\n");
+	sendString("2: Enviar ASCII\r\n");
+	sendString("Seleccione opción: ");
+}
+
+void processASCII(char ascii)
+{
+	
+	// Se muestra el valor ascii ingresado en el puerto
+	temporalB = ascii & 0x3F;
+	temporalD = (ascii & 0xC0);
+	PORTD = temporalD;
+	PORTB = temporalB;
+	menu_flag = 1; 
+}
+
 //*******************************************
 // Interrupt routines
 ISR(USART_RX_vect)
 {
+	// Se recibe el dato
 	char temporal = UDR0;
+	// Eco automático de dato ingresado
 	writeChar(temporal);
-	temporalB = temporal & 0x3F;
+	sendString(" \r\n");
+	if(option == 0) {
+		// Estamos en el menú principal
+		if(temporal == '1') {
+			option = 1;
+			sendString("\r\nLeyendo potenciómetro... ");
+			// Inicia una conversión
+			ADCSRA	|= (1 << ADSC);
+			} else if(temporal == '2') {
+			option = 2;
+			sendString("\r\nIngrese un caracter: ");
+			} else {
+			sendString("\r\nOpción no valida. Intente nuevamente.\r\n");
+			menu_flag = 1;
+		}
+		} else if(option == 2) {
+		// Estamos esperando un caracter ASCII una vez se selecciona option 2
+		processASCII(temporal);
+		option = 0;
+	}
+	
+	/*temporalB = temporal & 0x3F;
 	temporalD = (temporal & 0xC0);
 	PORTD = temporalD;
-	PORTB = temporalB;
+	PORTB = temporalB;*/
 }
 
-// NON - Interrupt
+ISR(ADC_vect)
+{
+	adc_value = ADCH;
+	sendString("\r\nValor del potenciómetro: ");
+	 
+	// Convertir a ASCII y enviar dígito por dígito
+	uint8_t centenas = adc_value / 100;					// únicamente se usa parte entera
+	uint8_t decenas = (adc_value % 100) / 10;			// se utiliza residuo para obtener decenas
+	uint8_t unidades = adc_value % 10;					// se utiliza residuo para obtener unidades
+	 
+	// '0' permite hacer conversión a un valor ascii (el que se mostrará)
+	// Si no se suma a '0' se muestra el valor incorrecto
+	writeChar(centenas + '0');
+	writeChar(decenas + '0');
+	writeChar(unidades + '0');
+	sendString(" \r\n");
+	 
+	// Mostrar en puertos
+	temporalB = adc_value & 0x3F;
+	temporalD = (adc_value & 0xC0);
+	PORTD = temporalD;
+	PORTB = temporalB;
+	menu_flag = 1;
+	option = 0; 
+}
