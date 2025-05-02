@@ -47,19 +47,19 @@ void initPWM0A(uint8_t invertido, uint16_t prescaler)
 	
 	//OCR0A = 127;             // Interrupción cada 125kHz / (124 + 1) = 1 kHz (1 ms)
 
-	TIMSK0 |= (1 << TOIE0); // Habilita la interrupción del timer
+	//TIMSK0 |= (1 << TOIE0); // Habilita la interrupción del timer
 }
 
 void initPWM0B(uint8_t invertido, uint16_t prescaler)
 {
 	DDRD	|= (1 << DDD5); // Como salida PD6
-	TCCR0A	&= ~((1 << COM0A1) | (1<<COM0A0));
+	TCCR0A	&= ~((1 << COM0B1) | (1<<COM0B0));
 	
 	if (invertido == invert)
 	{
-		TCCR0A	|= (1 << COM0A1) | (1 << COM0A0); //Invertido
+		TCCR0A	|= (1 << COM0B1) | (1 << COM0B0); //Invertido
 		} else {
-		TCCR0A	|= (1 << COM0A1);
+		TCCR0A	|= (1 << COM0B1);
 	}
 	
 	TCCR0A	|= (1 << WGM01) | (1 << WGM00); // Modo 3 -> Fast PWM y top 0xFF; 

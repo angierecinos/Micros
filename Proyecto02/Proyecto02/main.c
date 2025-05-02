@@ -35,7 +35,7 @@ void initADC();
 // Main Function
 int main(void)
 {
-	/* Replace with your application code */
+	setup();
 	while (1)
 	{
 	}
@@ -52,7 +52,6 @@ void setup()
 	CLKPR	= (1 << CLKPS2);					// Setea presc a 16 para 1MHz
 	
 	initPWM0A(non_invert, 64);
-
 	initPWM0B(non_invert, 64);					// No invertido prescaler de 8
 	initPWM1A(non_invert, 8);
 	initPWM1B(non_invert, 8);					// No invertido y prescaler de 8

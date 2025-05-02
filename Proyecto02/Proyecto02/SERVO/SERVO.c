@@ -16,7 +16,7 @@ void servo_positionA(uint16_t angulo)
 
 void servo_positionB(uint16_t angulo)
 {
-	OCR0B =  71 + (angulo*(312-71)/180);
+	OCR0B =  2 + (angulo*(50-2)/180);
 }
 
 void servo_position1A(uint16_t angulo)
