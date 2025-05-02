@@ -52,9 +52,11 @@ void setup()
 	CLKPR	= (1 << CLKPS2);					// Setea presc a 16 para 1MHz
 	
 	initPWM0A(non_invert, 64);
-	initPWM0B(non_invert, 64);					// No invertido y prescaler de 8
-	initPWM1A(non_invert, 64);
-	initPWM1B(non_invert, 64);					// No invertido y prescaler de 8
+
+	initPWM0B(non_invert, 64);					// No invertido prescaler de 8
+	initPWM1A(non_invert, 8);
+	initPWM1B(non_invert, 8);					// No invertido y prescaler de 8
+
 	initADC();
 	
 	DDRB  |= (1 << PORTB1) | (1 << PORTB2);	// En el timer1 pines PB1 | PB2
@@ -69,13 +71,13 @@ void initADC()
 	ADMUX	= 0;
 	ADMUX	|= (1 << REFS0);					//ADMUX &= ~(1<< REFS1); // Se ponen los 5V como ref
 	
-	ADMUX	|= (1 << ADLAR);					// Justificación a la izquierda
+	ADMUX	|= (1 << ADLAR);					// Justificaciï¿½n a la izquierda
 	ADMUX	|= (1 << MUX0); //| (1<< MUX0);		// Seleccionar el ADC1
 	ADCSRA	= 0;
 	ADCSRA	|= (1 << ADPS1) | (1 << ADPS0);		// Frecuencia de muestreo de 125kHz
-	ADCSRA	|= (1 << ADIE);						// Hab interrupción
+	ADCSRA	|= (1 << ADIE);						// Hab interrupciï¿½n
 	ADCSRA	|= (1 << ADEN);
-	ADCSRA	|= (1 << ADSC);						// Inicia con la conversión
+	ADCSRA	|= (1 << ADSC);						// Inicia con la conversiï¿½n
 }
 
 //
@@ -128,5 +130,5 @@ ISR(ADC_vect)
 			break;  
 	}
 	
-	ADCSRA |= (1 << ADSC);								// Inicia conversión otra vez
+	ADCSRA |= (1 << ADSC);								// Inicia conversiï¿½n otra vez
 }
