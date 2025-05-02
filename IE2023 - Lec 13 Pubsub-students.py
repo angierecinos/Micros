@@ -13,7 +13,7 @@ run_count = 0
 # Set to your Adafruit IO username and key.
 # Remember, your key is a secret,
 # so make sure not to publish it when you publish this code!
-ADAFRUIT_IO_USERNAME = "angie_rec"
+ADAFRUIT_IO_USERNAME = "user"
 ADAFRUIT_IO_KEY = "key"
 
 # Set to the ID of the feed to subscribe to for updates.
