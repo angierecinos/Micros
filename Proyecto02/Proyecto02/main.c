@@ -22,16 +22,20 @@ uint16_t option = 0;
 uint16_t adc_value;
 uint16_t pulse;
 uint16_t pulse2;
-char texto = 0;
 uint8_t eleccion_adc =0;
 uint8_t counter = 0;
 uint8_t manual = 0;
+#define MAX_CHAR 20
+char input_angle[MAX_CHAR];
+char texto = 0;
+uint8_t input_index = 0;
+uint8_t new_data_flag = 0;
 
 //
 // Function prototypes
 void setup();
 void initADC();
-void processCoord(texto);
+void processCoord(char texto);
 //
 // Main Function
 int main(void)
@@ -81,7 +85,7 @@ void initADC()
 	ADCSRA	|= (1 << ADSC);						// Inicia con la conversi�n
 }
 
-void processCoord(texto)
+void processCoord(char* texto)
 {
 	char* indice = texto;
 	uint8_t servo_index = 0;				// índice para coordenadas
@@ -89,16 +93,16 @@ void processCoord(texto)
 
 	// Mientras sea menor a 4 y el índice sea diferente del nulo
 	while (servo_index < 4 && *indice != '\0') {
-		char temp[5] = {0};					// Buffer temporal para número
+		char temp[5] = {0};					// Array para las coordenadas
 		uint8_t i = 0;
 
-		while (*ptr != ',' && *ptr != '\0' && i < 4) {
-			temp[i++] = *ptr++;
+		while (*indice != ',' && *indice != '\0' && i < 4) {
+			temp[i++] = *indice++;
 		}
 
 		angulos[servo_index++] = atoi(temp);
 
-		if (*ptr == ',') ptr++;  // saltar la coma
+		if (*indice == ',') indice++;  // saltar la coma
 	}
 
 	// Ahora puedes aplicar las funciones para mover servos
@@ -182,7 +186,7 @@ ISR(USART_RX_vect)
 			sendString("\r\nPor ejemplo: 30,60,90,180.\r\n");
 			PORTB &= ~(1 << PORTB0);
 			PORTD |= (1 << PORTD7);
-			option == 1; 
+			option = 1; 
 		} else {
 		sendString("\r\nOpción no valida. Intente nuevamente.\r\n");
 		}
@@ -190,6 +194,16 @@ ISR(USART_RX_vect)
 		{
 			sendString("\r\nCoordenadas: \r\n");
 			
+			writeChar(temporal); // echo
+
+			if (temporal == '\n') {
+				input_angle[input_index] = '\0';		 // Final del texto
+				input_index = 0;						 // Se resetea el indice
+				new_data_flag = 1;						 // Señal de que hay nueva cadena para procesar
+			}
+			else if (input_index < MAX_CHAR - 1) {
+				input_angle[input_index++] = temporal;
+			}
 			
 		}
 	
