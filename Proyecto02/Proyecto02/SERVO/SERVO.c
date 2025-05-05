@@ -42,36 +42,37 @@ uint16_t mapeoADCtoPulse1(uint16_t adc_val)
 void processCoord(char* input, uint16_t* angulos)
 {
 	uint8_t servo_index = 0;
-	uint16_t temp_val = 0;
-	char mensaje[40];
+	uint16_t act_val = 0;
 
-	for (uint8_t i = 0; input[i] != '\0'; i++) {
-		if (input[i] >= '0' && input[i] <= '9') {
-			temp_val = temp_val * 10 + (input[i] - '0');
+	for (uint8_t indice = 0; input[indice] != '\0'; indice++) {
+		// Se debe trabajar con números no con ASCII
+		if (input[indice] >= '0' && input[indice] <= '9') {
+			// Al restar '0' del valor de entrada se obtiene su valor decimal correcto
+			act_val = act_val * 10 + (input[indice] - '0');
 		}
-		else if (input[i] == ',' || input[i] == ' ') {
+		// únicamente después de , o de ' ' guardará el valor (de lo contrario no ha terminado el ángulo)
+		else if (input[indice] == ',' || input[indice] == ' ') {
 			if (servo_index < 4) {
-				if (temp_val > 180) {
-					sendString(mensaje, "Ángulo %u inválido, ajustado a 180\r\n", temp_val);
-					sendString(mensaje);
-					temp_val = 180;
+				if (act_val > 180) {
+					sendString("Ángulo %u inválido, ajustado a 180\r\n");
+					act_val = 180;
 				}
-				angulos[servo_index++] = temp_val;
-				temp_val = 0;
+				angulos[servo_index++] = act_val;
+				act_val = 0;
 			}
 		}
 	}
 
+	// Guardar el último número si no terminó en coma
 	if (servo_index < 4) {
-		if (temp_val > 180) {
-			sendString(mensaje, "Ángulo %u inválido, ajustado a 180\r\n", temp_val);
-			sendString(mensaje);
-			temp_val = 180;
-		}
-		angulos[servo_index++] = temp_val;
+		angulos[servo_index++] = act_val;
 	}
 
-	while (servo_index < 4) {
-		angulos[servo_index++] = 0;
+	if (servo_index == 4) {
+		servo_positionA(angulos[0]);
+		servo_positionB(angulos[1]);
+		servo_position1A(angulos[2]);
+		servo_position1B(angulos[3]);
 	}
+	
 }

@@ -43,6 +43,11 @@ int main(void)
 	setup();
 	while (1)
 	{
+		if (option == 1 && new_data_flag)
+		{
+			processCoord(input_angle);
+			new_data_flag = 0;
+		}
 	}
 }
 
@@ -87,31 +92,7 @@ void initADC()
 
 void processCoord(char* texto)
 {
-	char* indice = texto;
-	uint8_t servo_index = 0;				// índice para coordenadas
-	uint16_t angulos[4] = {0};				// Se almacenarán las coordenadas
-
-	// Mientras sea menor a 4 y el índice sea diferente del nulo
-	while (servo_index < 4 && *indice != '\0') {
-		char temp[5] = {0};					// Array para las coordenadas
-		uint8_t i = 0;
-
-		while (*indice != ',' && *indice != '\0' && i < 4) {
-			temp[i++] = *indice++;
-		}
-
-		angulos[servo_index++] = atoi(temp);
-
-		if (*indice == ',') indice++;  // saltar la coma
-	}
-
-	// Ahora puedes aplicar las funciones para mover servos
-	if (servo_index == 4) {
-		servo_positionA(angulos[0]);
-		servo_positionB(angulos[1]);
-		servo_position1A(angulos[2]);
-		servo_position1B(angulos[3]);
-	}
+	
 }
 
 //
@@ -194,15 +175,15 @@ ISR(USART_RX_vect)
 		{
 			sendString("\r\nCoordenadas: \r\n");
 			
-			writeChar(temporal); // echo
+			writeChar(temporal);
 
 			if (temporal == '\n') {
 				input_angle[input_index] = '\0';		 // Final del texto
-				input_index = 0;						 // Se resetea el indice
+				input_index = 0;						 // Se resetea el indice de lo que entra
 				new_data_flag = 1;						 // Señal de que hay nueva cadena para procesar
 			}
 			else if (input_index < MAX_CHAR - 1) {
-				input_angle[input_index++] = temporal;
+				input_angle[input_index++] = temporal;	 // Se guarda en un array el valor actual que se vaya leyendo
 			}
 			
 		}
