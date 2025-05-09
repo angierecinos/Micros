@@ -39,11 +39,12 @@ uint16_t mapeoADCtoPulse1(uint16_t adc_val)
 	return ((adc_val * 180) / 255);		// Escalar 0-255 a 125-250
 }
 
-void processCoord(char* input, uint16_t* angulos)
+void processCoord(char* input)
 {
-	uint8_t servo_index = 0;
-	uint16_t act_val = 0;
-
+	uint8_t servo_index = 0;		// Indice de ángulos
+	uint16_t act_val = 0;			// Guarda el caracter actual
+	uint8_t angulos[4] = {0};		// Para guardar los valores de los ángulos
+		
 	for (uint8_t indice = 0; input[indice] != '\0'; indice++) {
 		// Se debe trabajar con números no con ASCII
 		if (input[indice] >= '0' && input[indice] <= '9') {
@@ -54,7 +55,7 @@ void processCoord(char* input, uint16_t* angulos)
 		else if (input[indice] == ',' || input[indice] == ' ') {
 			if (servo_index < 4) {
 				if (act_val > 180) {
-					sendString("Ángulo %u inválido, ajustado a 180\r\n");
+					//sendString("Ángulo %u inválido, ajustado a 180\r\n");
 					act_val = 180;
 				}
 				angulos[servo_index++] = act_val;

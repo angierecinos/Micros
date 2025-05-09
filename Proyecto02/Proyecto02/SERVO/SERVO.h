@@ -21,6 +21,6 @@ void servo_positionB(uint16_t pulse);
 void servo_position1A(uint16_t pulse);
 void servo_position1B(uint16_t pulse);
 
-void processCoord(char* input, uint16_t* angulos);
+void processCoord(char* input);
 
 #endif /* SERVO_H_ */
