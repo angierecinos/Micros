@@ -49,6 +49,7 @@ void processCoord(char* input)
 		// Se debe trabajar con números no con ASCII
 		if (input[indice] >= '0' && input[indice] <= '9') {
 			// Al restar '0' del valor de entrada se obtiene su valor decimal correcto
+			// Al multiplicar por 10, se encuentra si es centa, decena o unidad
 			act_val = act_val * 10 + (input[indice] - '0');
 		}
 		// únicamente después de , o de ' ' guardará el valor (de lo contrario no ha terminado el ángulo)
@@ -74,6 +75,8 @@ void processCoord(char* input)
 		servo_positionB(angulos[1]);
 		servo_position1A(angulos[2]);
 		servo_position1B(angulos[3]);
+	} else {
+		//sendString("Error: Ingrese 4 ángulos válidos.\r\n");
 	}
 	
 }

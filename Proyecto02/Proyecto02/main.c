@@ -53,12 +53,15 @@ int main(void)
 			manual_mode();
 			uart_act = 0;
 		}
-		else if (modo == 2 && new_data_flag && uart_act)
+		else if (modo == 2)
 		{
-			uart_mode();
-			processCoord(input_angle);
-			new_data_flag = 0;
 			manual = 0;
+			uart_mode();
+			if (uart_act && new_data_flag)
+			{
+				processCoord(input_angle);
+				new_data_flag = 0;
+			}
 			
 		}
 	}
@@ -83,9 +86,13 @@ void setup()
 	initUART();
 	
 	DDRB  |= (1 << PORTB1) | (1 << PORTB2) | (1 << PORTB0);		// En el timer1 pines PB1 | PB2 y PB0 como led para modo
+	PORTB &= ~(1 << PORTB0);									// Se apaga el led para modo
+	
 	DDRC  &= ~((1 << PORTC5) | (1 << PORTC6));					// Se setean PC5 y PC6 como entradas
 	PORTC |= (1 << PORTC5) | (1 << PORTC6);						// Se habilitan los pull ups internos
-	DDRD  |= (1 << PORTD6) | (1 << PORTD5);						// En el timer0 PD5 y PD6 
+	
+	DDRD  |= (1 << PORTD6) | (1 << PORTD5) | (1 << PORTD7);		// En el timer0 PD5 y PD6 | Led PD7
+	PORTD &= ~(1 << PORTD7);									// Se apaga el led para modo
 	UCSR0B	= 0x00;												// Apaga serial
 	
 	PCICR	|= (1 << PCIE1);									// Se habilitan interrupciones pin-change
@@ -196,7 +203,7 @@ ISR(USART_RX_vect)
 			}
 			// Se establece un límite max en MAX_CHAR para los caracteres que puedan haber dejando espacio siempre para \n
 			// Siempre que el valor sea diferente de \n
-			else (input_index < MAX_CHAR - 1) {
+			else if (input_index < MAX_CHAR - 1) {
 				input_angle[input_index++] = temporal;	 // Se guarda en un array el valor actual que se vaya leyendo
 			}
 			
