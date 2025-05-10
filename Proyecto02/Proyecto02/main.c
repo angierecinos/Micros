@@ -33,6 +33,9 @@ uint8_t new_data_flag = 0;
 uint8_t modo = 1; 
 uint8_t btn_eeprom = 0; 
 uint8_t uart_act = 0;
+#define EEPROM_CONTADOR_POSICIONES 0 // dirección 0 reservada para contador
+uint8_t cant_posiciones_eeprom = 0;  // variable en RAM
+uint8_t rpr_counter = 0; 
 //
 // Function prototypes
 void setup();
@@ -119,7 +122,29 @@ void manual_mode()
 		PORTB |= (1 << PORTB0);
 		PORTD &= ~(1 << PORTD7);
 		manual = 1;
-	
+		
+		// En el modo manual deben poder guardarse las posiciones
+		if (btn_eeprom == 1)
+		{
+			// Se calcula dirección de escritura
+			// Por cada serie de posiciones se almacena la posición de 4 servos 
+			// -> Luego de 4 posiciones empieza el nuevo set de posiciones
+			uint8_t direccion = 1 + cant_posiciones_eeprom * 4;			// empieza en dirección 1 (En la 0 guardamos cuantos sets de pos se guardan)
+			
+			// La posición de c/servo se almacena en un espacio independiente
+			writeEEPROM(OCR1A, direccion++);
+			writeEEPROM(OCR1B, direccion++);
+			writeEEPROM(OCR0A, direccion++);
+			writeEEPROM(OCR0B, direccion++);
+
+			// Incrementar contador de posiciones 
+			cant_posiciones_eeprom++;
+			// Se guarda en la EEPROM cuantos set de posiciones se han almacenado
+			writeEEPROM(cant_posiciones_eeprom, EEPROM_CONTADOR_POSICIONES);
+			
+			// Se reestablece el botón para poder guardar nuevas posiciones
+			btn_eeprom = 0;
+		}
 }
 
 void uart_mode()
@@ -135,6 +160,19 @@ void eeprom_mode()
 {
 	PORTB |= (1 << PORTB0);
 	PORTD |= (1 << PORTD7);
+	
+	cant_posiciones_eeprom = readEEPROM(EEPROM_CONTADOR_POSICIONES); 
+	uint8_t direccion = 1;
+	
+	if (cant_posiciones_eeprom > 0) {
+		uint8_t direccion = 1 + rpr_counter * 4;
+		OCR1A = readEEPROM(direccion++);
+		OCR1B = readEEPROM(direccion++);
+		OCR0A = readEEPROM(direccion++);
+		OCR0B = readEEPROM(direccion++);
+	} 
+		
+	
 }
 //
 // Interrupt routines
@@ -270,7 +308,17 @@ ISR(PCINT1_vect){
 	}
 	else if (!(PINC & (1 << PORTC6)))					// Se revisa si el botón de EEPROM está presionado
 	{
-		btn_eeprom = 1;									
+		if (modo == 1)
+		{
+			btn_eeprom = 1;		
+		}
+		else if (modo == 3) {
+			rpr_counter++;
+			if (rpr_counter >= cant_posiciones_eeprom)
+			{
+				rpr_counter = 0; 
+			}
+		}					
 	}
 	
 }
