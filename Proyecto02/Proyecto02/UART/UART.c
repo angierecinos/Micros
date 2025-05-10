@@ -13,14 +13,14 @@ void initUART()
 	DDRD |=  (1 << DDD1);
 	DDRD &= ~(1 << DDD0);
 	
-	//
-	UCSR0A = 0;
+	// Double speed
+	UCSR0A |= (1 << U2X0); 
 	// Habilitar interrupts recibir, recepcion y transmision
 	UCSR0B |= (1 << RXCIE0) | (1 << RXEN0) | (1 << TXEN0);
 	//
 	UCSR0C = (1 << UCSZ01) | (1 << UCSZ00);
-	// UBRR = 103 -> 9600 @ 16MHz
-	UBRR0 = 103;
+	// UBRR = 12 -> 9600 @ 1MHz
+	UBRR0 = 12;
 }
 
 void writeChar(char caracter)

@@ -33,7 +33,7 @@ int main(void)
 	{
 		if (menu_flag)
 		{
-			//showMenu();
+			showMenu();
 			menu_flag = 0;
 		}
 	}
