@@ -16,6 +16,7 @@
 #include "PWM1/PWM1.h"
 #include "SERVO/SERVO.h"
 #include "UART/UART.h"
+#include "EEPROM/EEPROM.h"
 
 uint8_t lectura_adc;
 uint16_t option = 0;
@@ -36,6 +37,10 @@ uint8_t uart_act = 0;
 #define EEPROM_CONTADOR_POSICIONES 0 // dirección 0 reservada para contador
 uint8_t cant_posiciones_eeprom = 0;  // variable en RAM
 uint8_t rpr_counter = 0; 
+uint8_t direccion = 0;
+char valor;
+uint8_t start_save = 1; 
+uint8_t ubicacion = 0;
 //
 // Function prototypes
 void setup();
@@ -53,6 +58,7 @@ int main(void)
 	{
 		switch(modo){
 			case 1: 
+				
 				manual_mode();
 				uart_act = 0;
 				break;
@@ -123,13 +129,24 @@ void manual_mode()
 		PORTD &= ~(1 << PORTD7);
 		manual = 1;
 		
+		// Si aun no se guarda nada, se inicia en 0
+		if (start_save == 0)
+		{
+			direccion = 0;
+		}
+		// Si aun no se guarda y se presiona el boton, iniciar los sets de posiciones en 0
+		if (start_save == 0 && btn_eeprom == 1)
+		{
+			cant_posiciones_eeprom = 0; 
+		}
+		
 		// En el modo manual deben poder guardarse las posiciones
-		if (btn_eeprom == 1)
+		if (btn_eeprom == 1 && cant_posiciones_eeprom < 6)
 		{
 			// Se calcula dirección de escritura
 			// Por cada serie de posiciones se almacena la posición de 4 servos 
 			// -> Luego de 4 posiciones empieza el nuevo set de posiciones
-			uint8_t direccion = 1 + cant_posiciones_eeprom * 4;			// empieza en dirección 1 (En la 0 guardamos cuantos sets de pos se guardan)
+			direccion = 1 + cant_posiciones_eeprom * 4;			// empieza en dirección 1 (En la 0 guardamos cuantos sets de pos se guardan)
 			
 			// La posición de c/servo se almacena en un espacio independiente
 			writeEEPROM(OCR1A, direccion++);
@@ -144,6 +161,13 @@ void manual_mode()
 			
 			// Se reestablece el botón para poder guardar nuevas posiciones
 			btn_eeprom = 0;
+			
+			// Se enciende bandera para guardar
+			start_save = 1;
+		}
+		else if (btn_eeprom == 1 && cant_posiciones_eeprom > 6)
+		{
+			cant_posiciones_eeprom = 0;
 		}
 }
 
@@ -161,15 +185,21 @@ void eeprom_mode()
 	PORTB |= (1 << PORTB0);
 	PORTD |= (1 << PORTD7);
 	
+	start_save = 0; 
+	
 	cant_posiciones_eeprom = readEEPROM(EEPROM_CONTADOR_POSICIONES); 
-	uint8_t direccion = 1;
+	
+	if (rpr_counter >= cant_posiciones_eeprom)
+	{
+		rpr_counter = 0;
+	}
 	
 	if (cant_posiciones_eeprom > 0) {
-		uint8_t direccion = 1 + rpr_counter * 4;
-		OCR1A = readEEPROM(direccion++);
-		OCR1B = readEEPROM(direccion++);
-		OCR0A = readEEPROM(direccion++);
-		OCR0B = readEEPROM(direccion++);
+		ubicacion = 1 + rpr_counter * 4;
+		OCR1A = readEEPROM(ubicacion++);
+		OCR1B = readEEPROM(ubicacion++);
+		OCR0A = readEEPROM(ubicacion++);
+		OCR0B = readEEPROM(ubicacion++);
 	} 
 		
 	
@@ -275,9 +305,9 @@ ISR(USART_RX_vect)
 					}
 				
 					if (servo_index == 4) {
-						OCR1A = 71 + (angulos[0] * (312 - 71)) / 180;
+						OCR1A = 1120 + (angulos[0] * (2499 - 1120)) / 180;
 						OCR1B = 71 + (angulos[1] * (312 - 71)) / 180;
-						OCR0A = 2 + (angulos[2] * (50 - 2)) / 180;
+						OCR0A = 16 + (angulos[2] * (31 - 16)) / 180;
 						OCR0B = 2 + (angulos[3] * (50 - 2)) / 180;
 						
 					}
@@ -314,10 +344,6 @@ ISR(PCINT1_vect){
 		}
 		else if (modo == 3) {
 			rpr_counter++;
-			if (rpr_counter >= cant_posiciones_eeprom)
-			{
-				rpr_counter = 0; 
-			}
 		}					
 	}
 	
