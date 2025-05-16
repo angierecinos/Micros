@@ -36,11 +36,13 @@ uint8_t btn_eeprom = 0;
 uint8_t uart_act = 0;
 #define EEPROM_CONTADOR_POSICIONES 0 // dirección 0 reservada para contador
 uint8_t cant_posiciones_eeprom = 0;  // variable en RAM
+uint8_t positions = 0;
 uint8_t rpr_counter = 0; 
 uint8_t direccion = 0;
-char valor;
+//char valor;
 uint8_t start_save = 1; 
 uint8_t ubicacion = 0;
+uint8_t reproduction = 0;
 //
 // Function prototypes
 void setup();
@@ -54,6 +56,26 @@ void eeprom_mode();
 int main(void)
 {
 	setup();
+	cant_posiciones_eeprom = readEEPROM(EEPROM_CONTADOR_POSICIONES);
+	//uint8_t temp1 = readEEPROM(EEPROM_CONTADOR_POSICIONES);
+	/*if (temp1 != 0xFF)
+	{
+		cant_posiciones_eeprom = temp1;
+	}
+	else
+	{
+		cant_posiciones_eeprom = 0;
+		writeEEPROM(cant_posiciones_eeprom, EEPROM_CONTADOR_POSICIONES);
+	}*/
+	//eraseEEPROM();
+	/*uint8_t i = 0;
+	uint8_t valor2 = readEEPROM(i);
+	while(valor2 != 0xFF)
+	{
+		writeChar(valor2);
+		i++;
+		valor2 = readEEPROM(i);
+	}*/
 	while (1)
 	{
 		switch(modo){
@@ -67,6 +89,7 @@ int main(void)
 				uart_mode();
 				break;
 			case 3: 
+				manual = 0;
 				eeprom_mode();
 				break;
 		}
@@ -87,15 +110,15 @@ void setup()
 	DDRB  |= (1 << PORTB1) | (1 << PORTB2) | (1 << PORTB0);		// En el timer1 pines PB1 | PB2 y PB0 como led para modo
 	PORTB &= ~(1 << PORTB0);									// Se apaga el led para modo
 	
-	DDRC  &= ~((1 << PORTC5) | (1 << PORTC6));					// Se setean PC5 y PC6 como entradas
-	PORTC |= (1 << PORTC5) | (1 << PORTC6);						// Se habilitan los pull ups internos
+	DDRC  &= ~((1 << PORTC5) | (1 << PORTC0));					// Se setean PC5 y PC0 como entradas
+	PORTC |= (1 << PORTC5) | (1 << PORTC0);						// Se habilitan los pull ups internos
 	
 	DDRD  |= (1 << PORTD6) | (1 << PORTD5) | (1 << PORTD7);		// En el timer0 PD5 y PD6 | Led PD7
 	PORTD &= ~(1 << PORTD7);									// Se apaga el led para modo
 	//UCSR0B	= 0x00;												// Apaga serial
 	
 	PCICR	|= (1 << PCIE1);									// Se habilitan interrupciones pin-change
-	PCMSK1	|= (1 << PCINT13) | (1 << PCINT14);					// Se habilitan solo para los PC5 y PC6
+	PCMSK1	|= (1 << PCINT13) | (1 << PCINT8);					// Se habilitan solo para los PC5 y PC6
 	
 	initPWM0A(non_invert, 64);
 	initPWM0B(non_invert, 64);					// No invertido prescaler de 8
@@ -129,19 +152,8 @@ void manual_mode()
 		PORTD &= ~(1 << PORTD7);
 		manual = 1;
 		
-		// Si aun no se guarda nada, se inicia en 0
-		if (start_save == 0)
-		{
-			direccion = 0;
-		}
-		// Si aun no se guarda y se presiona el boton, iniciar los sets de posiciones en 0
-		if (start_save == 0 && btn_eeprom == 1)
-		{
-			cant_posiciones_eeprom = 0; 
-		}
-		
 		// En el modo manual deben poder guardarse las posiciones
-		if (btn_eeprom == 1 && cant_posiciones_eeprom < 6)
+		if (btn_eeprom == 1 && cant_posiciones_eeprom <= 6)
 		{
 			// Se calcula dirección de escritura
 			// Por cada serie de posiciones se almacena la posición de 4 servos 
@@ -162,12 +174,12 @@ void manual_mode()
 			// Se reestablece el botón para poder guardar nuevas posiciones
 			btn_eeprom = 0;
 			
-			// Se enciende bandera para guardar
-			start_save = 1;
 		}
 		else if (btn_eeprom == 1 && cant_posiciones_eeprom > 6)
 		{
+			writeEEPROM(0, EEPROM_CONTADOR_POSICIONES); // Borra el contador
 			cant_posiciones_eeprom = 0;
+			btn_eeprom = 0;
 		}
 }
 
@@ -185,24 +197,25 @@ void eeprom_mode()
 	PORTB |= (1 << PORTB0);
 	PORTD |= (1 << PORTD7);
 	
-	start_save = 0; 
-	
-	cant_posiciones_eeprom = readEEPROM(EEPROM_CONTADOR_POSICIONES); 
-	
-	if (rpr_counter >= cant_posiciones_eeprom)
+	if (btn_eeprom == 1)
 	{
-		rpr_counter = 0;
-	}
-	
-	if (cant_posiciones_eeprom > 0) {
-		ubicacion = 1 + rpr_counter * 4;
-		OCR1A = readEEPROM(ubicacion++);
-		OCR1B = readEEPROM(ubicacion++);
-		OCR0A = readEEPROM(ubicacion++);
-		OCR0B = readEEPROM(ubicacion++);
-	} 
 		
-	
+		if (rpr_counter >= cant_posiciones_eeprom)
+		{
+			rpr_counter = 0;
+		}
+		
+		if (cant_posiciones_eeprom > 0) {
+			ubicacion = 1 + rpr_counter * 4;
+			OCR1A = readEEPROM(ubicacion++);
+			OCR1B = readEEPROM(ubicacion++);
+			OCR0A = readEEPROM(ubicacion++);
+			OCR0B = readEEPROM(ubicacion++);
+			rpr_counter++;
+		}
+		
+		btn_eeprom = 0; 
+	}
 }
 //
 // Interrupt routines
@@ -259,15 +272,29 @@ ISR(USART_RX_vect)
 	// Eco automático de dato ingresado
 	//writeChar(temporal);
 	//sendString(" \r\n");
+	//if (temporal == 'M:1')
+	if (temporal == 'M')
+	{
+		modo++;
+		if (modo >=4)
+		{
+			modo = 1;
+		}
+	}
+	else if (temporal == 'E')
+	{
+		btn_eeprom = 1;
+	}
+	
 	
 	if (modo == 2)
 	{
 			
 
 			if (temporal == '\n' || temporal == '\r') {
-				sendString("\r\nCoordenadas implementadas: \r\n");
+				//sendString("\r\nCoordenadas implementadas: \r\n");
 				input_angle[input_index] = '\0';		 // Final del texto
-				
+				//sendString(input_angle);
 				uint8_t servo_index = 0;		// Indice de ángulos
 				uint16_t act_val = 0;			// Guarda el caracter actual
 				uint8_t angulos[4] = {0};		// Para guardar los valores de los ángulos
@@ -305,10 +332,20 @@ ISR(USART_RX_vect)
 					}
 				
 					if (servo_index == 4) {
-						OCR1A = 1120 + (angulos[0] * (2499 - 1120)) / 180;
+						OCR1A = 71 + (angulos[0] * (312 - 71)) / 180;
 						OCR1B = 71 + (angulos[1] * (312 - 71)) / 180;
-						OCR0A = 16 + (angulos[2] * (31 - 16)) / 180;
-						OCR0B = 2 + (angulos[3] * (50 - 2)) / 180;
+						OCR0A = 8 + (angulos[2] * (37 - 8)) / 180;
+						OCR0B = 16 + (angulos[3] * (31 - 16)) / 180;
+						
+						// Enviar por UART como string tipo: 90,120,30,0\n
+						// Temporal con tamaño max de 4 caracteres
+						char str_val[4];
+						for (uint8_t j = 0; j < 4; j++) {
+							angle_to_str(angulos[j], str_val);
+							sendString(str_val);
+							if (j < 3) writeChar(',');  // No coma final
+						}
+						writeChar('\n');
 						
 					}
 
@@ -327,24 +364,18 @@ ISR(USART_RX_vect)
 
 
 ISR(PCINT1_vect){
-	
 	if (!(PINC & (1 << PORTC5)))						// Se revisa si el botón de modo está presionado
 	{
+		//writeChar('M');
 		modo++;
 		if (modo >= 4)
 		{
 			modo = 1;
 		}
 	}
-	else if (!(PINC & (1 << PORTC6)))					// Se revisa si el botón de EEPROM está presionado
+	else if (!(PINC & (1 << PORTC0)))					// Se revisa si el botón de EEPROM está presionado
 	{
-		if (modo == 1)
-		{
-			btn_eeprom = 1;		
-		}
-		else if (modo == 3) {
-			rpr_counter++;
-		}					
+		//writeChar('E');
+		btn_eeprom = 1;						
 	}
-	
 }

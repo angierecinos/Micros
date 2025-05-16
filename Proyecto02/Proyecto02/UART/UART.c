@@ -40,3 +40,22 @@ void sendString(char* texto)
 		writeChar(texto[indice]);
 	}
 }
+
+void angle_to_str(uint8_t value, char* str)
+{
+	if (value >= 100) {
+		*str++ = (value / 100) + '0';	// 123 / 100 = 1 ? almacena '1'
+		value %= 100;					// 123 % 100 = 23 ? ahora value = 23
+		*str++ = (value / 10) + '0';	// 23 / 10 = 2 ? almacena '2'
+		value %= 10;					// 23 % 10 = 3 ? ahora value = 3
+		*str++ = value + '0';			// almacena '3'
+	} else if (value >= 10) {
+		*str++ = (value / 10) + '0';
+		value %= 10;
+		*str++ = value + '0';
+	} else {
+		*str++ = value + '0';
+	}
+
+	*str = '\0';  
+}

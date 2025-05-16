@@ -29,3 +29,15 @@ uint8_t readEEPROM(uint8_t direccion){
 	EECR |= (1 << EERE);
 	return EEDR;
 }
+
+void eraseEEPROM()
+{
+	uint8_t i=0;
+	uint8_t valor = readEEPROM(i);
+	while(valor != 0xFF)
+	{
+		writeEEPROM(0xFF,i);
+		i++;
+		valor = readEEPROM(i);
+	}
+}

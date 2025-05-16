@@ -13,6 +13,7 @@
 
 void writeEEPROM(uint8_t dato, uint8_t direccion);
 uint8_t readEEPROM(uint8_t direccion);
+void eraseEEPROM();
 
 
 #endif /* EEPROM_H_ */

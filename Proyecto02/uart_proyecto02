@@ -1,0 +1,10 @@
+import serial
+
+#Crear comunicación serial con arduino -COM4- 
+com_arduino = serial.Serial(port = 'COM4', baudrate=9600, timeout=0.1)
+
+while True:
+    ingreso = input("Ingrese valores entre 0- 180 para los 4 motores separados por comas: ")
+    com_arduino.write(bytes(ingreso, 'utf-8'))
+    retorno = com_arduino.readline().decode('utf-8').strip()
+    print("Datos recibidos: ", retorno)

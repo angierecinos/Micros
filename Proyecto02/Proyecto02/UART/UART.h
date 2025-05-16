@@ -14,6 +14,6 @@
 void initUART();
 void writeChar(char caracter);
 void sendString(char* texto);
-
+void angle_to_str(uint8_t value, char* str);
 
 #endif /* UART_H_ */

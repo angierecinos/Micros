@@ -10,23 +10,25 @@
 void servo_positionA(uint16_t angulo)
 {
 
-	OCR0A = 16 + (angulo * (31-16)/180);
+	OCR0A = 5 + (angulo * (37-5)/180);
+	//OCR0A = 5 + (angulo * (37-5)/180);
+
 
 }
 
 void servo_positionB(uint16_t angulo)
 {
-	OCR0B =  2 + (angulo*(50-2)/180);
+	OCR0B =  16 + (angulo*(31-16)/180);
 }
 
 void servo_position1A(uint16_t angulo)
 {
-	OCR1A = 71 + (angulo * (312-71) / 180);
+	OCR1A = 125 + (angulo * (250-125) / 180);
 }
 
 void servo_position1B(uint16_t angulo)
 {
-	OCR1B =  71 + (angulo*(312-71)/180);
+	OCR1B =  125 + (angulo*(250-125)/180);
 }
 
 uint16_t mapeoADCtoPulse(uint16_t adc_val)
